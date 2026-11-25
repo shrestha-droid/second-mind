@@ -1120,11 +1120,14 @@ splitHandle.addEventListener("pointerdown", (e) => {
   const box = centre.getBoundingClientRect();
   const move = (ev) => setSplit(((ev.clientX - box.left) / box.width) * 100);
   splitHandle.addEventListener("pointermove", move);
-  splitHandle.addEventListener("pointerup", () => {
+  // Ends on release, cancel or a lost capture alike, exactly once.
+  const end = () => {
     splitHandle.removeEventListener("pointermove", move);
+    for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) splitHandle.removeEventListener(t, end);
     centre.classList.remove("dragging");
     store.set("sm-split", Number(splitHandle.getAttribute("aria-valuenow")));
-  }, { once: true });
+  };
+  for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) splitHandle.addEventListener(t, end);
 });
 splitHandle.addEventListener("keydown", (e) => {
   const d = { ArrowLeft: -2, ArrowRight: 2 }[e.key];

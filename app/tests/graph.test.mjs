@@ -24,10 +24,14 @@ test("clampZoom keeps 0.4..2.5", () => {
   assert.equal(clampZoom(1.2), 1.2);
 });
 
-test("nodeRadius grows with degree and caps", () => {
-  assert.equal(nodeRadius(0), 4.5);
+test("nodeRadius matches the drawn size per tier, and projects grow with degree and cap", () => {
+  assert.equal(nodeRadius(0), 4);
   assert.ok(nodeRadius(3) > nodeRadius(1));
-  assert.equal(nodeRadius(1e9), 7.5);
+  assert.equal(nodeRadius(1e9), 6);
+  assert.equal(nodeRadius(5, 0), 9);
+  assert.equal(nodeRadius(5, 1), 6.5);
+  assert.equal(nodeRadius(5, 3), 2.2);
+  assert.equal(nodeRadius(5, 4), 3);
 });
 
 test("degrees counts both ends of tree and link edges", () => {
@@ -166,4 +170,25 @@ test("project: origin at the screen centre, nearer points larger and in front", 
   assert.ok(Math.abs(turned.depth - 1) < 1e-9 && Math.abs(turned.sx - 100) < 1e-6);
   const z2 = project({ x: 10, y: 0, z: 0 }, { ...cam, zoom: 2 }).sx - 100, z1 = project({ x: 10, y: 0, z: 0 }, cam).sx - 100;
   assert.ok(Math.abs(z2 - 2 * z1) < 1e-9);
+});
+
+// The graph builds its arrow-key order from the 3D layout's x and y, so check that path too.
+const navOf = (pl) => { const pos = holoLayout(pl); return buildNav(new Set(pl.nodes.map((n) => n.id)), pos); };
+
+test("buildNav over holoLayout orders the centre's branches work, college, builds", () => {
+  const kids = navOf(payload).kids.get("shrestha").filter((k) => !k.startsWith("inbox/"));
+  assert.deepEqual(kids, ["shrestha/work", "shrestha/college", "shrestha/builds"]);
+});
+
+test("buildNav over holoLayout: right then left comes back for every node with siblings (300 nodes)", () => {
+  const big = synthetic(), nav = navOf(big);
+  let checked = 0;
+  for (const { id } of big.nodes) {
+    const sib = nav.kids.get(nav.up.get(id));
+    if (!sib || sib.length < 2) continue;
+    assert.equal(step(nav, step(nav, id, "ArrowRight"), "ArrowLeft"), id);
+    assert.equal(new Set(sib).size, sib.length);
+    checked++;
+  }
+  assert.ok(checked > 200, String(checked));
 });

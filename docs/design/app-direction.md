@@ -38,7 +38,7 @@ Fonts are vendored woff2 under `app/vendor/fonts/` (OFL), never a CDN. **Ask Shr
 | H1 / H2 / H3 | Source Serif 4 | 26 / 20 / 16.5, weight 600, tracking -0.02em / -0.015em / 0 |
 | Code | Plex Mono | 13 / 400 / 1.55 |
 | Counts, ≈tokens, dates, keycaps, HUD | Plex Mono | 11 / 400 / 14, `tabular-nums` |
-| Branch labels in graph | Plex Mono | 10.5 / 500 / caps, +0.09em |
+| Branch labels in graph | Plex Mono | 11 / 500 / caps, +0.08em |
 
 Blockquote: 15.5 italic, 2px left rule in `--branch` at 60%.
 
@@ -48,7 +48,7 @@ Blockquote: 15.5 italic, 2px left rule in `--branch` at 60%.
 - **Sidebar** 240px (drag 200–340, ⌘\ toggles), `--surface`, 1px right hairline. Top: filter box (typing filters the tree; Enter runs full-text search, results inline with 2-line snippets, matches `<mark>`). Then **Inbox** row pinned with accent count badge. Then the tree from `Shrestha`: 26px rows, 12px indent per level, 1px guide lines at 40% `--border`, branch rows prefixed by a 6px dot in branch hue. Stale rows (>30 days) show muted title + small `30d+` mono tag.
 - **Centre** `1fr`, min 500px, `--bg`.
   - Note mode: frontmatter as a compact grid (28px rows: Type, Summary, Pinned, Updated) above a 1px hairline; then the body. v1 editing = **source and preview side by side** inside the centre pane (50/50, scroll-synced by ratio), ⌘E toggles preview-only reading. Prose column max 68ch, padding 44px 36px 96px. (Gemini's caret-line live preview is v2.)
-  - Graph mode: full-bleed canvas holo tank (see §Graph), HUD bottom-left (28px, 12px inset, `--raised`, 1px border, 4px radius): zoom %, Stale toggle, Cross-links toggle, Re-centre (0).
+  - Graph mode: full-bleed canvas holo tank (see §Graph), HUD bottom-right (28px, 12px inset, restyled to the tank, 1px border, 4px radius): zoom %, Stale toggle, Cross-links toggle, Re-centre (0).
   - Split mode: 45% graph / 55% note, 1px draggable divider. Clicking a node opens its note on the right without moving keyboard focus; Enter moves focus into the note.
 - **Inspector** 300px (drag 260–420, ⌘⇧\ toggles), `--surface`, 1px left hairline, two tabs (32px): **Links (n)** and **Pack**.
   - Links: Backlinks then Outgoing; each row: 5px branch dot, title (13px/500), 2-line excerpt (12px muted), 1px dividers.
@@ -107,6 +107,54 @@ The existing DOM HUD (zoom %, Stale toggle, Cross-links toggle, Re-centre) stays
 - Hover (45ms intent, 120ms ease-out): radius +25%, 4 corner reticle ticks at `r_screen + 8`, 1-hop neighbours to full alpha, others dim to 0.25.
 - Keyboard **(ours: keeps the tree-walk keys, Tab is never trapped)**: canvas is focusable (`tabindex=0`, `role="application"`, `aria-roledescription="3D graph"`). ← → siblings, ↑ parent, ↓ first child, Enter opens, C adds to the pack override, Space flies the camera to the focused node, ⇧+arrows orbit 15°, `+`/`−` zoom 15%, `0` or Esc resets camera (Esc first clears a filter). Each focus change updates a visually hidden `aria-live="polite"` region: `"<title>, <branch>, <n> links"`. Focus shows the reticle in accent `#E0F2FE`, dashed.
 - Fly-to on select (Space, or opening from Split): 550ms `cubic-bezier(.22,1,.36,1)`, shortest-path yaw/pitch to bring the node to the front, f ×1.35.
+
+### v2 look (Claude's direction, 2026-11-26)
+
+Shrestha asked for no more outside design passes and for the graph to "go all out". This subsection is Claude's own direction and **wins over everything above it** where they differ. Same tank, hues, camera model, layout seeds and keys; much more depth, light and life.
+
+**Fit.** Focal length scales with the pane: `f = 0.84 × min(w, h)` at zoom 1 (900px tall → 756). Zoom still multiplies f, 0.4–2.5×. Split view therefore fills its pane instead of drawing small. Recompute on resize and on a `devicePixelRatio` change.
+
+**Back layers** (drawn first, in this order):
+- Vignette: radial `#000` from 0 at 0.55·max(w,h) to 0.35 at the corners.
+- Starfield: 220 stars, seeded, on a shell at r 900–1400, projected with yaw ×0.35 and pitch ×0.35 (parallax: they drift slower than the graph). 0.5–1.2px, `#CBD5E1` at 0.15–0.5. 12% of them twinkle (sine, period 3–7s, seeded phase).
+- Nebulae: one soft cloud per branch, a pre-rendered 256px radial sprite in the branch hue, centred on the branch direction projected at r 200, drawn at 0.35·min(w,h) radius, alpha 0.045, `'lighter'`. They turn with the graph.
+- Floor grid: a polar grid on the plane y = +330 (below the sphere): rings at r 100–500 every 100 (64-segment polylines) and 24 spokes, holo at 0.06 × depth alpha. Turns with yaw.
+- Wireframe globe at r 300: latitudes 0°, ±30°, ±60° and 12 meridians, 48 segments each. Holo 0.035 on the back half, 0.07 on the front; equator 0.10.
+
+**Core (Shrestha)** — a reactor, not a dot:
+- 9px `#FFFFFF` core; 40px holo glow pulsing 0.16→0.24→0.16 over 3.2s.
+- Arc ring A: r 16, one 300° arc, 1.5px, +0.35 rad/s, holo 0.55.
+- Arc ring B: r 22, two 110° arcs opposite each other, 1px, −0.22 rad/s, holo 0.40.
+- Ring C: r 29, dashed `[2,3]` full circle, +0.08 rad/s, holo 0.30.
+- Label `SHRESTHA` centred under ring C, Plex Mono 11px caps +0.14em, `#E0F2FE`.
+All radii × projection scale s.
+
+**Branch nodes.** 6.5px core; 34px glow at 0.16; a 4-point flare: a 26px horizontal and an 18px vertical hairline, each a linear gradient hue → transparent from the centre, alpha 0.35. Orbit ring at 14px, 1px, hue 0.5, carrying one bright 60° arc at 0.9 that turns at 0.5 rad/s.
+
+**Branch callouts.** Branch labels are tags, not floating text: a leader line leaves the node at 45° up and outward (away from the screen centre on x) for 14px, then runs 28px horizontal; 1px hue at 0.7, with a 2px dot at the elbow. Above the horizontal run: the name in Plex Mono 11px caps +0.08em, hue at 0.95; under the run: `<n> NOTES` (descendant count) in Plex Mono 9.5px caps at 0.55. Shown for every branch on the front half, and always when focused.
+
+**Labels, readable.** Fill `#F1F5F9`, alpha `max(0.72, depth alpha)`; halo 3px `#05080F` at 0.9. Project labels Plex Sans 11.5px. Label gating: branch tags need t ≥ 0.5 (front half) or focus; project labels need s ≥ 0.85 or hover/focus; max 16 a frame as before.
+
+**Edges.** Tree edges are a linear gradient from the parent's hue to the child's, alpha as before. Cross-links unchanged.
+
+**Energy pulses.** Light travels outward along the tree: spawn 3 a second, at most 24 alive. Each starts at the centre on a random branch path and runs centre → branch → project (or deeper), 600ms per edge. A pulse is a 3px glow stamp in the edge's hue with a 5-stamp trail fading 0.5 → 0.
+
+**Target lock (hover and keyboard focus).**
+- Four corner brackets snap in from r+20 to r+8 over 140ms, 1.25px `#E0F2FE`.
+- A dashed `[3,5]` ring at r+12 turning 0.8 rad/s.
+- A holo callout panel, drawn in canvas: leader 40px at −30° then 24px flat; panel 184×64, background `#05080F` at 0.82, 1px holo border at 0.5, 2px left bar in the node's hue, 8px chamfer on the top-right corner. Line 1: title, Plex Sans 12.5px `#F8FAFC`, truncated to fit. Line 2: `WORK · 7 LINKS`, Plex Mono 9.5px caps 0.65. Line 3: `UPDATED 2026-11-02`, or `STALE · 41D` with the stale shape cue. It flips to the left of the node if it would leave the canvas. 120ms fade.
+
+**Click.** A shockwave: a ring from r to r+60 in 500ms, 1.5px hue, alpha 0.6 → 0, and a second ring 80ms behind it. The note opens at once; the ring is decoration.
+
+**Entrance.** Replaces the fly-out row in §Motion. 0–250ms HUD rings scale .92 → 1 and fade in. 150–750ms a scan line sweeps the tank top to bottom: 2px holo at 0.5 with a 60px glow below it at 0.08, full width. Each node appears as the line passes its screen y: alpha 0 → 1 in 120ms and radius from 0.85× to 1× world position in 300ms (easeOutCubic). Edges, tags and readouts fade in 600–1000ms. Then idle.
+
+**HUD data panel** (real numbers only, computed from the payload). Under the top-left readout: a 44px donut, 3px thick, one arc per branch sized by its note count with 2° gaps; beside it five rows, Plex Mono 9.5px caps, a 6px hue swatch then `WORK 42`. Under those, a stale meter: 80×3px track at holo 0.15, filled by the stale share in `#94A3B8`, labelled `STALE 18%`. Hidden when the canvas is under 760px wide.
+
+**Keys added.** `F` filters to the focused node's branch (the keyboard route to the ⌥-click filter); Esc clears it. Add it to the canvas `aria-label` and the legend: `F FILTER`.
+
+**Reduced motion.** No pulses, twinkle, ring spin, scan line or shockwave (a 150ms opacity flash instead); brackets appear without the snap; the core glow holds at 0.20. Final layout at first paint.
+
+**Budget.** ≥ 50fps median at 1440×900, DPR 2, 300 nodes, measured headless as before. If over budget, drop in this order: gradient edges → solid child hue; star twinkle; meridians 12 → 8; nebulae.
 
 ## Motion
 
