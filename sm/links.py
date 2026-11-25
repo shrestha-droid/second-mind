@@ -45,7 +45,7 @@ def link_index(vault: Path) -> dict:
             r = resolve(t, idset)
             if r is None:
                 missing.setdefault(i, []).append(t)
-            elif r != i:
+            elif r != i and r not in out[i]:
                 out[i].append(r)
                 back[r].append(i)
     return {"out": out, "back": back, "missing": missing}

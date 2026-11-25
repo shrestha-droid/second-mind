@@ -46,6 +46,17 @@ class LinksTest(unittest.TestCase):
         self.assertEqual(idx["back"]["shrestha/b"], ["shrestha/a"])
         self.assertEqual(idx["back"]["shrestha/a"], [])
 
+    def test_dedupe_resolved_targets(self):
+        v = make_vault(self.tmp, {
+            "shrestha/_index.md": note(),
+            "shrestha/a.md": note("[[b]] [[shrestha/b]] [[B]]"),
+            "shrestha/b.md": note()})
+        idx = link_index(v)
+        self.assertEqual(idx["out"]["shrestha/a"], ["shrestha/b"])
+        self.assertEqual(idx["back"]["shrestha/b"], ["shrestha/a"])
+        links = [e for e in graph_payload(v)["edges"] if e["kind"] == "link"]
+        self.assertEqual(links, [{"source": "shrestha/a", "target": "shrestha/b", "kind": "link"}])
+
     def test_missing(self):
         v = make_vault(self.tmp, {
             "shrestha/_index.md": note(), "shrestha/a.md": note("[[nowhere]]")})
