@@ -1,10 +1,13 @@
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from sm.ops import create_note, move_note, snapshot, trash_note
-from sm.vault import all_ids, read_note, write_note
+from sm import ops
+from sm.ops import PartialMove, create_note, move_note, snapshot, trash_note
+from sm.vault import all_ids, note_path, read_note, write_note
 from tests.helpers import make_vault
 
 FM = '---\ntitle: "{t}"\n---\n'
@@ -93,6 +96,56 @@ class OpsTest(unittest.TestCase):
         })
         self.assertEqual(move_note(v, "shrestha/a", "shrestha/z"), 1)
         self.assertEqual(read_note(v, "shrestha/z/b").body, "[[shrestha/z/c]]\n")
+
+    def test_move_deep_under_leaf_promotes_every_ancestor(self):
+        v = make_vault(self.tmp, {"shrestha/_index.md": note("Root"),
+                                  "shrestha/x.md": note("X", "keep\n"),
+                                  "shrestha/a.md": note("A")})
+        move_note(v, "shrestha/a", "shrestha/x/y/z")
+        self.assertFalse((v / "shrestha/x.md").exists())
+        self.assertEqual(read_note(v, "shrestha/x").body, "keep\n")
+        self.assertTrue((v / "shrestha/x/y/z.md").is_file())
+        move_note(v, "shrestha/x/y/z", "shrestha/x/q")  # second move must not crash
+        self.assertIn("shrestha/x/q", all_ids(v))
+
+    def _bump_mtime_on_write(self, v, victim, times):
+        """Patch ops.write_note so `victim` is edited behind its back on its first `times` writes."""
+        real, left = ops.write_note, {"n": times}
+
+        def fake(vault, id, meta, body, base):
+            if id == victim and left["n"] > 0:
+                left["n"] -= 1
+                p = note_path(vault, id)
+                ns = p.stat().st_mtime_ns + 5_000_000
+                os.utime(p, ns=(ns, ns))
+            return real(vault, id, meta, body, base)
+        return mock.patch.object(ops, "write_note", fake)
+
+    def _link_vault(self):
+        return make_vault(self.tmp, {
+            "shrestha/_index.md": note("Root"),
+            "shrestha/a.md": note("A"),
+            "shrestha/c.md": note("C", "[[shrestha/a]]\n"),
+            "shrestha/d.md": note("D", "[[shrestha/a]]\n")})
+
+    def test_move_conflict_retried_once(self):
+        v = self._link_vault()
+        with self._bump_mtime_on_write(v, "shrestha/c", 1):
+            self.assertEqual(move_note(v, "shrestha/a", "shrestha/b"), 2)
+        self.assertEqual(read_note(v, "shrestha/c").body, "[[shrestha/b]]\n")
+        self.assertEqual(read_note(v, "shrestha/d").body, "[[shrestha/b]]\n")
+
+    def test_move_persistent_conflict_raises_partial_move(self):
+        v = self._link_vault()
+        with self._bump_mtime_on_write(v, "shrestha/c", 99):
+            with self.assertRaises(PartialMove) as cm:
+                move_note(v, "shrestha/a", "shrestha/b")
+        self.assertEqual(cm.exception.moved_to, "shrestha/b")
+        self.assertEqual(cm.exception.unrewritten, ["shrestha/c"])
+        self.assertTrue((v / "shrestha/b.md").is_file())
+        self.assertFalse((v / "shrestha/a.md").exists())
+        self.assertEqual(read_note(v, "shrestha/d").body, "[[shrestha/b]]\n")
+        self.assertEqual(read_note(v, "shrestha/c").body, "[[shrestha/a]]\n")
 
     def test_move_refusals(self):
         v = make_vault(self.tmp, {"shrestha/_index.md": note("Root"),

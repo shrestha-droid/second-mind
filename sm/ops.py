@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from sm.links import CODE_RE, LINK_RE, resolve
-from sm.vault import Note, all_ids, read_note, slugify, valid_id, write_note
+from sm.vault import Conflict, Note, all_ids, read_note, slugify, valid_id, write_note
 
 ROOTS = ("shrestha", "inbox")
 
@@ -26,13 +26,34 @@ def _promote(vault: Path, id: str) -> None:
     os.replace(leaf, vault / id / "_index.md")
 
 
+def _ensure_dirs(vault: Path, id: str) -> None:
+    """Make `id` and every ancestor a directory, promoting leaf `.md` ancestors."""
+    parts = id.split("/")
+    for n in range(1, len(parts) + 1):
+        anc = "/".join(parts[:n])
+        if (vault / f"{anc}.md").exists():
+            _promote(vault, anc)
+        else:
+            (vault / anc).mkdir(exist_ok=True)
+
+
+class PartialMove(Exception):
+    """The move happened, but some links could not be rewritten."""
+
+    def __init__(self, moved_to: str, unrewritten: list[str], rewritten: int):
+        super().__init__(f"moved to {moved_to}; links not rewritten in {unrewritten}")
+        self.moved_to, self.unrewritten, self.rewritten = moved_to, unrewritten, rewritten
+
+
 def create_note(vault: Path, parent_id: str, title: str, type: str, folder: bool) -> Note:
     id = f"{parent_id}/{slugify(title)}"
     if not valid_id(parent_id) or not valid_id(id):
         raise ValueError(f"invalid note id: {id!r}")
     if _exists(vault, id):
         raise FileExistsError(id)
-    _promote(vault, parent_id)
+    if not _exists(vault, parent_id):
+        raise FileNotFoundError(parent_id)
+    _ensure_dirs(vault, parent_id)
     if folder:
         (vault / id).mkdir()
     meta = {"title": title, "type": type, "summary": "", "links": [], "pinned": False}
@@ -87,19 +108,27 @@ def move_note(vault: Path, id: str, new_id: str) -> int:
     changes = []
     for i in sorted(ids):
         note = read_note(vault, i)
-        done = _rewrite(note, ids, mapping)
-        if done:
-            changes.append((mapping.get(i, i), done, note.mtime_ns))
+        new = _rewrite(note, ids, mapping)
+        if new:
+            changes.append((mapping.get(i, i), new, note.mtime_ns))
 
-    parent = new_id.rsplit("/", 1)[0]
-    if (vault / f"{parent}.md").exists():
-        _promote(vault, parent)
-    (vault / parent).mkdir(parents=True, exist_ok=True)
+    _ensure_dirs(vault, new_id.rsplit("/", 1)[0])
     os.replace(src, vault / new_id if is_dir else vault / f"{new_id}.md")
-    # ponytail: a Conflict mid-loop leaves earlier notes rewritten; no rollback
+    done, failed = 0, []
     for nid, (meta, body), mtime in changes:
-        write_note(vault, nid, meta, body, mtime)  # rename keeps mtime, so the base still holds
-    return len(changes)
+        try:
+            try:
+                write_note(vault, nid, meta, body, mtime)  # rename keeps mtime, so the base still holds
+            except Conflict as c:  # edited meanwhile: redo the rewrite on the fresh content, once
+                fresh = _rewrite(c.current, ids, mapping)
+                if fresh:
+                    write_note(vault, nid, *fresh, c.current.mtime_ns)
+            done += 1
+        except Conflict:
+            failed.append(nid)
+    if failed:
+        raise PartialMove(new_id, failed, done)
+    return done
 
 
 def trash_note(vault: Path, id: str) -> Path:
