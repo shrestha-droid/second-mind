@@ -1,0 +1,6 @@
+vault/
+.token
+.venv/
+__pycache__/
+*.db
+.DS_Store
