@@ -9,6 +9,7 @@ from pathlib import Path
 
 ID_RE = re.compile(r"(shrestha|inbox)(/[a-z0-9][a-z0-9-]{0,63})*")
 KEY_RE = re.compile(r"([A-Za-z0-9_-]+):\s*(.*)")
+BLOCK_RE = re.compile(r"[|>][+-]?\d*")
 STALE_DAYS = 30
 
 
@@ -37,6 +38,13 @@ def _parse_value(raw: str):
     return {"true": True, "false": False}.get(raw, raw)
 
 
+def _continues(lines: list[str], j: int, end: int) -> bool:
+    """True if the first non-blank line at/after j continues a block."""
+    while j < end and not lines[j]:
+        j += 1
+    return j < end and (lines[j][:1] in (" ", "\t") or lines[j].startswith("- "))
+
+
 def parse_note(text: str) -> tuple[dict, str]:
     norm = text.replace("\r\n", "\n")
     if not norm.startswith("---\n"):
@@ -47,8 +55,20 @@ def parse_note(text: str) -> tuple[dict, str]:
     except ValueError:
         return {}, text
     meta, raw_lines = {}, []
-    for line in lines[:end]:
+    i = 0
+    while i < end:
+        line, i = lines[i], i + 1
         m = KEY_RE.fullmatch(line)
+        if m and (not m[2].strip() or BLOCK_RE.fullmatch(m[2].strip())):
+            # block list / block scalar: keep the key and its continuation together
+            j = i
+            while j < end and (lines[j][:1] in (" ", "\t") or lines[j].startswith("- ")
+                               or (not lines[j] and _continues(lines, j + 1, end))):
+                j += 1
+            if j > i:
+                raw_lines += [line, *lines[i:j]]
+                i = j
+                continue
         try:
             if not m:
                 raise ValueError(line)
@@ -146,8 +166,14 @@ def is_stale(meta: dict, today: date) -> bool:
 def tree(vault: Path, root: str = "shrestha", today: date | None = None) -> dict:
     today = today or date.today()
     ids = all_ids(vault)
-    kids: dict[str, list[str]] = {}
+    # add folders that have notes but no _index.md so their children stay reachable
+    nodes = set(ids)
     for i in ids:
+        while "/" in i:
+            i = i.rsplit("/", 1)[0]
+            nodes.add(i)
+    kids: dict[str, list[str]] = {}
+    for i in nodes:
         if "/" in i:
             kids.setdefault(i.rsplit("/", 1)[0], []).append(i)
 

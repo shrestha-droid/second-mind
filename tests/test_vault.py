@@ -35,6 +35,25 @@ class TestFrontmatter(unittest.TestCase):
         self.assertEqual(parse_note(dump_note(meta, body)), (meta, body))
         self.assertIn("weird: {a: 1", dump_note(meta, body))
 
+    def test_block_yaml_survives(self):
+        text = ('---\ntitle: "T"\ntags:\n  - x\n  - y\naliases:\n- a\n'
+                'desc: |\n  line one\n\n  line two\nnote: >-\n  folded\n'
+                'pinned: true\n---\nBody')
+        meta, body = parse_note(text)
+        self.assertEqual((meta["title"], meta["pinned"], body), ("T", True, "Body"))
+        for k in ("tags", "aliases", "desc", "note"):
+            self.assertNotIn(k, meta)
+        out = dump_note(meta, body)
+        for block in ("tags:\n  - x\n  - y\n", "aliases:\n- a\n",
+                      "desc: |\n  line one\n\n  line two\n", "note: >-\n  folded\n"):
+            self.assertIn(block, out)
+        self.assertEqual(parse_note(out), (meta, body))
+        self.assertEqual(parse_note(dump_note(meta, body))[0]["_raw_lines"],
+                         meta["_raw_lines"])
+
+    def test_empty_value_without_block_is_plain(self):
+        self.assertEqual(parse_note("---\na:\nb: 1\n---\n")[0], {"a": "", "b": "1"})
+
     def test_bare_values(self):
         meta, _ = parse_note("---\na: true\nb: false\nc: hello  \n---\n")
         self.assertEqual(meta, {"a": True, "b": False, "c": "hello"})
@@ -131,6 +150,16 @@ class TestTree(TmpCase):
         self.assertEqual(hq["children"][0]["id"],
                          "shrestha/branch-hq/internal-work")
         self.assertFalse(hq["children"][0]["stale"])
+
+    def test_tree_synthesises_missing_folder_node(self):
+        make_vault(self.tmp, {"shrestha/_index.md": "x",
+                              "shrestha/foo/bar.md": '---\ntitle: "Bar"\n---\n'})
+        t = tree(self.tmp, today=date(2026, 11, 25))
+        foo = t["children"][0]
+        self.assertEqual((foo["id"], foo["title"], foo["type"], foo["stale"]),
+                         ("shrestha/foo", "foo", None, True))
+        self.assertEqual([c["id"] for c in foo["children"]], ["shrestha/foo/bar"])
+        self.assertEqual(all_ids(self.tmp), ["shrestha", "shrestha/foo/bar"])
 
 
 if __name__ == "__main__":
