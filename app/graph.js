@@ -192,6 +192,36 @@ const branchOf = (id) => (id.startsWith("inbox/") ? "inbox" : id === ROOT ? null
 const states = new WeakMap();
 
 /** Draw (or redraw with new data) the graph in container. Keeps camera, focus and loop across calls. */
+// Label budget a frame: a narrow tank (Split view) carries 8, a wide one 15 plus the centre's own.
+export const labelCap = (w) => (w < 600 ? 8 : 15);
+
+// Lower is placed first; 9 means no label. Neighbours of the hovered node obey the same tier gate as the rest.
+export function labelPriority(n, { hover, hl = 0, focus, showRet, near, fit = 1, compact = false }) {
+  if (n.id === hover && hl > 0.01) return 0;
+  if (n.id === focus && showRet) return 1;
+  if (n.tier === 1) return n.t >= 0.5 ? 2 : 9;
+  if (compact || n.s / fit < 0.85) return 9; // compact: projects only on hover or focus
+  if (near?.has(n.id) && hl > 0.5) return 3;
+  return n.tier === 2 ? 4 : 9;
+}
+
+// Greedy placement: a box is kept when it clears every kept box by pad px and misses the avoid circle [x, y, r].
+export function placeLabels(cands, { cap, reserved = [], avoid = null, pad = 4 }) {
+  const boxes = [...reserved], out = [];
+  for (const c of cands) {
+    const b = c.box;
+    if (avoid) {
+      const dx = avoid[0] - Math.max(b[0], Math.min(avoid[0], b[2])), dy = avoid[1] - Math.max(b[1], Math.min(avoid[1], b[3]));
+      if (dx * dx + dy * dy < avoid[2] * avoid[2]) continue;
+    }
+    if (boxes.some((o) => b[0] < o[2] + pad && b[2] + pad > o[0] && b[1] < o[3] + pad && b[3] + pad > o[1])) continue;
+    boxes.push(b);
+    out.push(c);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
 export function renderGraph(container, payload, { focusId, onOpen, onPack } = {}) {
   let st = states.get(container);
   if (!st) states.set(container, (st = mount(container)));
@@ -311,7 +341,12 @@ function mount(container) {
       const first = st.lastFocusId === undefined, n = st.byId.get(focusId);
       st.lastFocusId = focusId;
       // A note opened elsewhere (sidebar, link, hash) flies the camera to it; the first load does not.
-      if (n && focusId !== st.focus) { st.focus = focusId; if (!first) flyTo(n); }
+      if (n && focusId !== st.focus) {
+        // A note outside the branch filter clears the filter first, so the camera flies to a node that is drawn.
+        if (st.filter && !visibleIds(st.nodes, st.filter).has(focusId)) { st.filter = null; live.textContent = "Showing every branch"; }
+        st.focus = focusId;
+        if (!first) flyTo(n);
+      }
     }
     if (!st.byId.has(st.focus)) st.focus = ROOT;
     if (st.hot && !st.byId.has(st.hot)) st.hot = null;
@@ -358,6 +393,7 @@ function mount(container) {
 
   function drawEmpty() {
     const { w, h } = st;
+    if (live.textContent !== "No notes yet") live.textContent = "No notes yet";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.globalAlpha = 0.65;
@@ -487,8 +523,9 @@ function mount(container) {
     ctx.globalCompositeOperation = "lighter";
     for (const n of list) {
       if (n.tier === 0 || n.tier === 4 || staleOn(n)) continue;
-      const [gr, ga] = n.tier === 1 ? [34, 0.16] : n.tier === 2 ? [16, 0.12] : [8, 0.08];
+      const [gr, ga] = n.tier === 1 ? [34, 0.26] : n.tier === 2 ? [16, 0.12] : [10, 0.12];
       stamp(ctx, n.hue, n.sx, n.sy, gr * n.s, ga * n.a);
+      if (n.tier === 2) stamp(ctx, n.hue, n.sx, n.sy, 10 * n.s, 0.12 * n.a); // tight inner glow
     }
     ctx.globalCompositeOperation = "source-over";
 
@@ -499,7 +536,7 @@ function mount(container) {
         const { a, b } = e;
         if (e.link || !a.ek || !b.ek) continue;
         const hot = HL && (a.id === HL || b.id === HL);
-        ctx.globalAlpha = ef * (hot ? lerp(0.22, 0.28, hl) : 0.22 * (HL ? dim : 1)) * (a.da + b.da) / 2;
+        ctx.globalAlpha = Math.min(0.7, 1.5 * ef * (hot ? lerp(0.22, 0.28, hl) : 0.22 * (HL ? dim : 1)) * (a.da + b.da) / 2);
         const g = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
         g.addColorStop(0, fog(a.hue, a.t));
         g.addColorStop(1, fog(b.hue, b.t));
@@ -519,7 +556,7 @@ function mount(container) {
           if (!e.link || !a.ek || !b.ek) continue;
           const hot = HL && (a.id === HL || b.id === HL);
           P((a.x + b.x) * 0.41, (a.y + b.y) * 0.41, (a.z + b.z) * 0.41, c);
-          ctx.globalAlpha = ef * (hot ? lerp(0.09, 0.55, hl) : 0.09 * ((a.da + b.da) / 2) * (HL ? dim : 1));
+          ctx.globalAlpha = Math.min(1, 1.3 * ef * (hot ? lerp(0.09, 0.55, hl) : 0.09 * ((a.da + b.da) / 2) * (HL ? dim : 1)));
           ctx.beginPath();
           ctx.moveTo(a.sx, a.sy);
           ctx.quadraticCurveTo(c.sx, c.sy, b.sx, b.sy);
@@ -543,8 +580,8 @@ function mount(container) {
           const k = Math.floor(u), f = u - k, a = p.path[k], b = p.path[k + 1];
           if (!a.ek || !b.ek) return false;
           const lit = !HL || a.id === HL || b.id === HL || near.has(b.id);
-          const alpha = (i ? 0.5 * (1 - (i - 1) / 5) : 0.8) * lerp(a.da, b.da, f) * (lit ? 1 : dim);
-          stamp(ctx, b.hue, lerp(a.sx, b.sx, f), lerp(a.sy, b.sy, f), 4.5 * lerp(a.s, b.s, f) * (i ? 0.8 : 1), alpha);
+          const alpha = (i ? 0.7 * (1 - (i - 1) / 5) : 0.8) * lerp(a.da, b.da, f) * (lit ? 1 : dim);
+          stamp(ctx, b.hue, lerp(a.sx, b.sx, f), lerp(a.sy, b.sy, f), 4.5 * lerp(a.s, b.s, f) * (i ? 0.8 : 1.3), alpha);
         }
         return true;
       });
@@ -558,7 +595,8 @@ function mount(container) {
     for (const n of list) {
       const { sx, sy, r } = n, stale = staleOn(n), lit = n.id === HL && hl > 0;
       const hue = stale ? n.hueStale : n.hue, col = lit && hl > 0.5 ? "#FFFFFF" : fog(hue, n.t);
-      const a = n.a * (stale ? 0.45 : 1);
+      // projects and deeper never fade below 0.55, so the far side still reads
+      const a = stale ? n.a * 0.45 : n.tier === 2 || n.tier === 3 ? Math.max(n.a, 0.55 * n.ek * (HL && !(lit || near.has(n.id)) ? dim : 1)) : n.a;
       ctx.globalAlpha = a;
       ctx.fillStyle = col;
       ctx.strokeStyle = col;
@@ -610,48 +648,41 @@ function mount(container) {
       if (!shockLive) st.shock = null;
     }
 
-    // labels: gated, at most 16, by priority then front first; a label that would overlap one placed is skipped
-    const fitK = cam.fit;
-    const pri = (n) => {
-      if (n.id === HL && hl > 0.01) return 0;
-      if (n.id === st.focus && showRet) return 1;
-      if (n.tier === 1) return n.t >= 0.5 ? 2 : 9;
-      if (near.has(n.id) && hl > 0.5) return 3;
-      if (n.tier === 2 && n.s / fitK >= 0.85) return 4;
-      return 9;
-    };
-    const boxes = [], placed = [];
-    // The locked node's callout carries its title, so its panel is kept clear and it gets no second label.
+    // labels: gated, by priority then front first; a label that would crowd one placed, the callout or the lock is skipped
+    const compact = w < 600, fitK = cam.fit;
+    const reserved = [];
+    // The locked node's callout carries its title, so its panel and the ring round it stay clear and it gets no second label.
     const L = HL && hl > 0 && st.byId.get(HL);
-    if (L?.ek) boxes.push(calloutBox(L, w, h).box);
+    let avoid = null;
+    if (L?.ek) { reserved.push(calloutBox(L, w, h).box); avoid = [L.sx, L.sy, L.r + 22]; }
     const root = st.vis.has(ROOT) && st.byId.get(ROOT);
     if (root?.ek) {
       const y = root.sy + 29 * root.s + 15;
-      boxes.push([root.sx - 40, y - 11, root.sx + 40, y + 3]);
+      reserved.push([root.sx - 40, y - 11, root.sx + 40, y + 3]);
     }
+    const ctxL = { hover: HL, hl, focus: st.focus, showRet, near, fit: fitK, compact };
     const cands = [];
-    for (const n of list) { const p = n.tier === 0 || (n === L && n.tier !== 1) ? 9 : pri(n); if (p < 9) cands.push([p, n]); }
-    cands.sort((a, b) => a[0] - b[0] || b[1].t - a[1].t);
-    for (const [, n] of cands) {
+    for (const n of list) {
+      const p = n.tier === 0 || n === L ? 9 : labelPriority(n, ctxL);
+      if (p >= 9) continue;
       let box, g = null;
       if (n.tier === 1) {
         const [nw, tw] = tagWidths(n);
-        g = tagBox(n, w / 2, nw, tw, w);
-        box = g.box;
+        g = tagBox(n, w / 2, nw, compact ? 0 : tw, w);
+        box = compact ? [g.box[0], g.box[1], g.box[2], g.ey - 1] : g.box;
       } else {
         const x = n.sx + n.r + 6;
         box = [x, n.sy - 8, x + labelWidth(n), n.sy + 8];
       }
-      if (boxes.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
-      boxes.push(box);
-      placed.push([n, g]);
-      if (placed.length >= 15) break; // 16 with the centre's own label
+      cands.push({ p, n, g, box });
     }
+    cands.sort((a, b) => a.p - b.p || b.n.t - a.n.t);
+    const placed = placeLabels(cands, { cap: labelCap(w), reserved, avoid }).map((c) => [c.n, c.g]);
     placed.sort((a, b) => a[0].t - b[0].t);
     for (const [n, g] of placed) {
       const lit = n.id === HL && hl > 0;
       const k = HL && !(lit || near.has(n.id)) ? dim : 1;
-      if (g) drawTag(ctx, g, ell(n.title.toUpperCase()), `${n.notes} NOTES`, n.stale && st.stale ? n.hueStale : n.hue, Math.max(ef * n.ek * k, lit ? 1 : 0), st.fonts);
+      if (g) drawTag(ctx, g, ell(n.title.toUpperCase()), compact ? "" : `${n.notes} NOTES`, n.stale && st.stale ? n.hueStale : n.hue, Math.max(ef * n.ek * k, lit ? 1 : 0), st.fonts);
       else label(n, lit, k);
     }
     if (root?.ek) {
@@ -747,7 +778,9 @@ function mount(container) {
     // In a narrow pane the camera readout drops below the count instead of running into it.
     const fits = ctx.measureText(tl).width + ctx.measureText(tr).width + 24 <= w - pad * 2;
     ctx.textAlign = fits ? "right" : "left";
+    if (!fits) ctx.globalAlpha = alpha * 0.6; // second-row readout steps back
     ctx.fillText(tr, fits ? w - pad : pad, fits ? pad + 8 : pad + 22);
+    ctx.globalAlpha = alpha;
     ctx.textAlign = "left";
     // Bottom left sits beside the DOM HUD; in a narrow pane it moves up a row and drops the legend.
     const room = w - pad - st.hudW - 12 - 16;

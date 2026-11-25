@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampZoom, nodeRadius, degrees, staleLevel, neighbours, visibleIds, topByDegree, buildNav, step, holoLayout, project } from "../graph.js";
+import { clampZoom, nodeRadius, degrees, staleLevel, neighbours, visibleIds, topByDegree, buildNav, step, holoLayout, project, labelCap, labelPriority, placeLabels } from "../graph.js";
 import { orreryLayout } from "../lib.js";
 
 const N = (id, extra = {}) => ({ id, title: id, ...extra });
@@ -191,4 +191,23 @@ test("buildNav over holoLayout: right then left comes back for every node with s
     checked++;
   }
   assert.ok(checked > 200, String(checked));
+});
+
+test("labels: compact tank caps at 8, neighbours of the hover obey the tier gate", () => {
+  assert.equal(labelCap(337), 8);
+  assert.equal(labelCap(1440), 15);
+  const cands = Array.from({ length: 20 }, (_, i) => ({ box: [0, i * 30, 50, i * 30 + 16] }));
+  assert.equal(placeLabels(cands, { cap: labelCap(337) }).length, 8);
+  assert.equal(placeLabels(cands, { cap: labelCap(1440) }).length, 15);
+  // 4px padding: boxes 2px apart collide, 6px apart do not
+  assert.equal(placeLabels([{ box: [0, 0, 10, 10] }, { box: [12, 0, 20, 10] }], { cap: 15 }).length, 1);
+  assert.equal(placeLabels([{ box: [0, 0, 10, 10] }, { box: [16, 0, 20, 10] }], { cap: 15 }).length, 2);
+  // a box inside the r+22 ring round the locked node is dropped
+  assert.equal(placeLabels([{ box: [100, 100, 140, 116] }], { cap: 15, avoid: [90, 108, 30] }).length, 0);
+  const near = new Set(["far", "close", "br"]), ctx = { hover: "h", hl: 1, focus: "x", showRet: false, near, fit: 1 };
+  assert.equal(labelPriority({ id: "far", tier: 2, s: 0.6, t: 0.1 }, ctx), 9);
+  assert.equal(labelPriority({ id: "close", tier: 3, s: 0.9, t: 0.9 }, ctx), 3);
+  assert.equal(labelPriority({ id: "br", tier: 1, s: 1, t: 0.3 }, ctx), 9);
+  assert.equal(labelPriority({ id: "close", tier: 3, s: 0.9, t: 0.9 }, { ...ctx, compact: true }), 9);
+  assert.equal(labelPriority({ id: "x", tier: 2, s: 0.5, t: 0.1 }, { ...ctx, showRet: true, compact: true }), 1);
 });

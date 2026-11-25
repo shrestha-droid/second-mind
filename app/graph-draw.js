@@ -98,7 +98,7 @@ export function makeScene() {
     const R = 900 + 500 * r(), az = r() * TAU, el = Math.asin(r() * 2 - 1);
     stars.push({
       x: Math.cos(el) * Math.cos(az) * R, y: Math.sin(el) * R, z: Math.cos(el) * Math.sin(az) * R,
-      size: 0.5 + 0.7 * r(), a: 0.15 + 0.35 * r(), tw: r() < 0.12 ? { w: TAU / (3 + 4 * r()), ph: r() * TAU } : null,
+      size: 0.5 + 0.7 * r(), a: 0.2 + 0.45 * r(), tw: r() < 0.12 ? { w: TAU / (3 + 4 * r()), ph: r() * TAU } : null,
     });
   }
   const ring = (rr, y, seg) => { const a = new Float32Array((seg + 1) * 3); for (let i = 0; i <= seg; i++) { const t = (i / seg) * TAU; a.set([rr * Math.cos(t), y, rr * Math.sin(t)], i * 3); } return a; };
@@ -151,7 +151,7 @@ export function drawBack(ctx, scene, V) {
   if (scene.vigKey !== vk) {
     const g = ctx.createRadialGradient(w / 2, h / 2, 0.55 * hd, w / 2, h / 2, hd);
     g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(1, "rgba(0,0,0,0.35)");
+    g.addColorStop(1, "rgba(0,0,0,0.25)");
     scene.vig = g;
     scene.vigKey = vk;
   }
@@ -175,7 +175,7 @@ export function drawBack(ctx, scene, V) {
   const R = 0.35 * V.m;
   for (const b of V.branchDirs) {
     P(b.x * 200, b.y * 200, b.z * 200, q);
-    ctx.globalAlpha = 0.045 * k;
+    ctx.globalAlpha = 0.075 * k;
     ctx.drawImage(sprite(b.hue, 256, 0.35), q.sx - R, q.sy - R, R * 2, R * 2);
   }
   ctx.globalCompositeOperation = "source-over";
@@ -184,16 +184,16 @@ export function drawBack(ctx, scene, V) {
   ctx.strokeStyle = HOLO;
   ctx.lineWidth = 1;
   const gp = bucketed(ctx, scene.grid, P, 4, (t) => Math.min(3, Math.floor(t * 4)));
-  gp.forEach((p, i) => { ctx.globalAlpha = 0.06 * depthAlpha((i + 0.5) / 4) * k; ctx.stroke(p); });
+  gp.forEach((p, i) => { ctx.globalAlpha = 0.1 * depthAlpha((i + 0.5) / 4) * k; ctx.stroke(p); });
 
   // wireframe globe: back half, front half, and the equator a little brighter
   const half = (t) => (t >= 0.5 ? 1 : 0);
   const [mb, mf] = bucketed(ctx, [...scene.mer, ...scene.lat.filter((l) => !l.eq).map((l) => l.pts)], P, 2, half);
   const [eb, ef] = bucketed(ctx, scene.lat.filter((l) => l.eq).map((l) => l.pts), P, 2, half);
-  ctx.globalAlpha = 0.035 * k; ctx.stroke(mb);
-  ctx.globalAlpha = 0.05 * k; ctx.stroke(eb);
-  ctx.globalAlpha = 0.07 * k; ctx.stroke(mf);
-  ctx.globalAlpha = 0.1 * k; ctx.stroke(ef);
+  ctx.globalAlpha = 0.055 * k; ctx.stroke(mb);
+  ctx.globalAlpha = 0.08 * k; ctx.stroke(eb);
+  ctx.globalAlpha = 0.12 * k; ctx.stroke(mf);
+  ctx.globalAlpha = 0.18 * k; ctx.stroke(ef);
 }
 
 // ---------- nodes ----------
@@ -202,14 +202,14 @@ export function drawBack(ctx, scene, V) {
 export function drawCore(ctx, n, now, rmo, a) {
   const { sx, sy, s } = n, sec = rmo ? 0 : now / 1000;
   ctx.globalCompositeOperation = "lighter";
-  stamp(ctx, HOLO, sx, sy, 40 * s, (rmo ? 0.2 : 0.2 - 0.04 * Math.cos((TAU * now) / 3200)) * a);
+  stamp(ctx, HOLO, sx, sy, 40 * s, (rmo ? 0.27 : 0.27 - 0.05 * Math.cos((TAU * now) / 3200)) * a);
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = a;
   ctx.fillStyle = "#FFFFFF";
   ctx.beginPath(); ctx.arc(sx, sy, n.r, 0, TAU); ctx.fill();
   ctx.strokeStyle = HOLO;
   const A = 0.35 * sec;
-  ctx.lineWidth = 1.5; ctx.globalAlpha = 0.55 * a;
+  ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7 * a;
   ctx.beginPath(); ctx.arc(sx, sy, 16 * s, A, A + (300 * Math.PI) / 180); ctx.stroke();
   const B = -0.22 * sec, b = (110 * Math.PI) / 180;
   ctx.lineWidth = 1; ctx.globalAlpha = 0.4 * a;
@@ -227,7 +227,7 @@ export function drawBranchDeco(ctx, n, hue, now, rmo, a) {
   const { sx, sy, s } = n;
   ctx.globalCompositeOperation = "lighter";
   ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.35 * a;
+  ctx.globalAlpha = 0.5 * a;
   for (const [dx, dy] of [[26 * s, 0], [0, 18 * s]]) {
     const g = ctx.createLinearGradient(sx - dx, sy - dy, sx + dx, sy + dy);
     g.addColorStop(0, rgba(hue, 0));
@@ -238,7 +238,7 @@ export function drawBranchDeco(ctx, n, hue, now, rmo, a) {
   }
   ctx.globalCompositeOperation = "source-over";
   ctx.strokeStyle = hue;
-  ctx.globalAlpha = 0.5 * a;
+  ctx.globalAlpha = 0.65 * a;
   ctx.beginPath(); ctx.arc(sx, sy, 14 * s, 0, TAU); ctx.stroke();
   const t = rmo ? -Math.PI / 4 : (0.5 * now) / 1000;
   ctx.globalAlpha = 0.9 * a;
@@ -277,12 +277,14 @@ export function drawTag(ctx, g, name, notes, hue, a, F) {
   ctx.globalAlpha = 0.95 * a;
   ctx.fillStyle = hue;
   ctx.fillText(name, tx, ey - 4);
-  ctx.font = `400 9.5px ${F.mono}`;
-  ctx.letterSpacing = "0.76px";
-  halo(ctx, notes, tx, ey + 11, a);
-  ctx.globalAlpha = 0.55 * a;
-  ctx.fillStyle = hue;
-  ctx.fillText(notes, tx, ey + 11);
+  if (notes) {
+    ctx.font = `400 9.5px ${F.mono}`;
+    ctx.letterSpacing = "0.76px";
+    halo(ctx, notes, tx, ey + 11, a);
+    ctx.globalAlpha = 0.55 * a;
+    ctx.fillStyle = hue;
+    ctx.fillText(notes, tx, ey + 11);
+  }
   ctx.letterSpacing = "0px";
   ctx.textAlign = "left";
 }

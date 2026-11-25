@@ -156,6 +156,30 @@ All radii × projection scale s.
 
 **Budget.** ≥ 50fps median at 1440×900, DPR 2, 300 nodes, measured headless as before. If over budget, drop in this order: gradient edges → solid child hue; star twinkle; meridians 12 → 8; nebulae.
 
+### v2.1 polish (2026-11-26)
+
+Brighter and less cluttered. These values **win over v2** where they differ. The tank is dark in both themes and no draw code branches on theme, so the same values serve the light theme.
+
+Brighter:
+- Globe: back 0.055, front 0.12, equator front 0.18, equator back 0.08.
+- Floor grid 0.10. Nebulae 0.075. Vignette edge 0.25.
+- Stars: alpha 0.2 to 0.65.
+- Tree edges: base alpha ×1.5, clamped at 0.7. Cross-links ×1.3.
+- Branch nodes: glow 0.26, flare 0.5, orbit ring 0.65.
+- Projects and deeper: core fill alpha never below 0.55 (still dimmed by a hover), plus a 10px glow sprite at 0.12 in the branch hue. Projects keep their 16px glow under it.
+- Core: glow pulse 0.22 to 0.32; ring A alpha +0.15.
+- Pulses: head 1.3× size, trail alpha ×1.4.
+
+Less clutter:
+- While a node is locked, no label may touch its callout panel or the circle at r+22 round it. The locked node gets no label of its own; the callout carries its title.
+- Neighbours of the hovered node obey the tier gate: branches need t ≥ 0.5, projects and deeper need s/fit ≥ 0.85.
+- Label boxes keep 4px apart.
+- Compact mode, tank under 600px wide (Split): at most 8 labels, project labels only on hover or focus, branch tags show the name only, and the YAW/PITCH readout sits under the title at 0.6 alpha.
+
+Also:
+- Opening a note outside an active branch filter clears the filter before the camera flies.
+- The empty state writes "No notes yet" to the live region.
+
 ## Motion
 
 | What | Duration | Easing |
