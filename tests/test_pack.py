@@ -27,6 +27,12 @@ class RedactTest(unittest.TestCase):
         plain = "sk-short, ghp_tooshort, AKIA123, xoxz-1234567890, plain text."
         self.assertEqual(redact(plain), plain)
 
+    def test_redact_word_boundary(self):
+        text = "[[shrestha/work/risk-assessment-for-the-platform]] task-tracking-and-follow-up-system"
+        self.assertEqual(redact(text), text)
+        for pre in ("OPENAI_API_KEY=", 'key: "', "_", ""):
+            self.assertEqual(redact(f"{pre}sk-{'a' * 24}"), f"{pre}[REDACTED]", pre)
+
     def test_estimate_tokens(self):
         self.assertEqual(estimate_tokens(""), 0)
         self.assertEqual(estimate_tokens("abcde"), 2)
