@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { wikilinkQuery, rankMatches, safeHref, renderMarkdown, breadcrumb, orreryLayout } from "../lib.js";
+import { wikilinkQuery, rankMatches, safeHref, renderMarkdown, breadcrumb, orreryLayout, slugify, resolveTarget, snippetHtml, wordCount } from "../lib.js";
 
 test("wikilinkQuery", () => {
   assert.deepEqual(wikilinkQuery("see [[jar", 9), { start: 4, query: "jar" });
@@ -136,4 +136,31 @@ test("orreryLayout", () => {
   // deterministic on shuffled input
   const shuffled = [...nodes].reverse().sort((a, b) => (a.id.length % 5) - (b.id.length % 5));
   assert.deepEqual([...orreryLayout(shuffled)], [...m]);
+});
+
+test("slugify mirrors the server", () => {
+  assert.equal(slugify("Branch HQ"), "branch-hq");
+  assert.equal(slugify("  --Hello, World!-- "), "hello-world");
+  assert.equal(slugify("!!!"), "untitled");
+  assert.equal(slugify("a".repeat(63) + " b"), "a".repeat(63));
+});
+
+test("resolveTarget", () => {
+  const ids = new Set(["shrestha", "shrestha/builds/jarvis", "shrestha/work/x/dup", "shrestha/college/dup"]);
+  assert.equal(resolveTarget("shrestha/builds/jarvis", ids), "shrestha/builds/jarvis");
+  assert.equal(resolveTarget("builds/jarvis|J", ids), "shrestha/builds/jarvis");
+  assert.equal(resolveTarget("Jarvis#Plan", ids), "shrestha/builds/jarvis");
+  assert.equal(resolveTarget("dup", ids), null);
+  assert.equal(resolveTarget("nope", ids), null);
+  assert.equal(resolveTarget(" |x", ids), null);
+});
+
+test("snippetHtml escapes all but mark", () => {
+  const out = snippetHtml('a <mark>b</mark> <script>x</script> <mark onclick="y">c</mark> & "q"');
+  assert.equal(out, 'a <mark>b</mark> &lt;script&gt;x&lt;/script&gt; &lt;mark onclick=&quot;y&quot;&gt;c</mark> &amp; &quot;q&quot;');
+});
+
+test("wordCount", () => {
+  assert.equal(wordCount(""), 0);
+  assert.equal(wordCount("  one two\nthree "), 3);
 });

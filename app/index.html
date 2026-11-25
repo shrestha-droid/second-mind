@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="sm-token" content="{{TOKEN}}">
+<meta name="color-scheme" content="light dark">
+<title>Second Mind</title>
+<link rel="preload" href="/app/vendor/fonts/IBMPlexSans-Regular-Latin1.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/app/vendor/fonts/SourceSerif4-Regular.ttf.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/app/app.css">
+<script>try { const t = localStorage.getItem("sm-theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch {}</script>
+</head>
+<body data-view="note">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-more" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1.25" fill="currentColor"/><circle cx="8" cy="8" r="1.25" fill="currentColor"/><circle cx="12.5" cy="8" r="1.25" fill="currentColor"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.25 10.25L13.5 13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13.25 9.6A5.5 5.5 0 0 1 6.4 2.75a5.5 5.5 0 1 0 6.85 6.85z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-diamond" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" transform="rotate(45 8 8)" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-read" viewBox="0 0 16 16"><path d="M1.75 8s2.25-4.25 6.25-4.25S14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+</svg>
+
+<a class="skip" href="#editor-body">Skip to note</a>
+
+<header class="topbar">
+  <nav class="crumbs" aria-label="Breadcrumb"><ol id="crumbs"></ol></nav>
+  <div class="views" role="group" aria-label="View">
+    <button type="button" data-view="graph" aria-pressed="false">Graph <kbd>⌘1</kbd></button>
+    <button type="button" data-view="split" aria-pressed="false">Split <kbd>⌘2</kbd></button>
+    <button type="button" data-view="note" aria-pressed="true">Note <kbd>⌘3</kbd></button>
+  </div>
+  <div class="tools">
+    <button type="button" id="pack-pill" class="pill" aria-label="Context pack size. Open the pack tab"><span id="pill-n">≈0</span><span class="pill-sep">/</span><span id="pill-b">1,500</span></button>
+    <button type="button" id="theme-btn" class="icon-btn" aria-label="Switch theme"><svg class="ic"><use href="#i-moon"/></svg></button>
+    <button type="button" id="k-btn" class="kbtn" aria-label="Go to note (⌘K)"><svg class="ic"><use href="#i-search"/></svg><kbd>⌘K</kbd></button>
+  </div>
+</header>
+<div id="banner-down" class="banner" role="alert" hidden>Server not running: <code>python3 server.py</code>. Your edits are kept here and retried.</div>
+
+<div class="shell" id="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Notes">
+    <div class="side-head">
+      <label class="filter">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="filter" type="search" placeholder="Filter notes" aria-label="Filter notes. Enter searches note text" autocomplete="off" spellcheck="false">
+      </label>
+      <button type="button" id="new-btn" class="icon-btn" aria-label="New note in the current note"><svg class="ic"><use href="#i-plus"/></svg></button>
+    </div>
+    <section id="search-results" class="search-results" aria-label="Text matches" hidden></section>
+    <nav id="tree" class="tree" aria-label="Note tree"></nav>
+    <div class="resizer" data-pane="side" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" aria-valuemin="200" aria-valuemax="340" tabindex="0"></div>
+  </aside>
+
+  <main class="centre" id="centre">
+    <section id="graph-pane" class="graph-pane" aria-label="Graph" hidden>
+      <div class="graph-placeholder">
+        <p class="eyebrow">Graph</p>
+        <p>The orrery view is not built yet. Open notes from the tree or with <kbd>⌘K</kbd>.</p>
+      </div>
+    </section>
+
+    <section id="note-pane" class="note-pane" aria-label="Note">
+      <div id="banner-conflict" class="conflict" role="alert" hidden>
+        <span><strong>Changed on disk.</strong> Someone edited this note outside the app since you opened it.</span>
+        <span class="conflict-actions">
+          <button type="button" id="c-reload" class="btn">Reload</button>
+          <button type="button" id="c-keep" class="btn btn-accent">Keep mine</button>
+        </span>
+      </div>
+      <div class="note-scroll" id="note-scroll">
+        <form id="fm" class="fm" autocomplete="off" onsubmit="return false">
+          <div class="fm-top">
+            <input id="f-title" class="f-title" aria-label="Title" spellcheck="true">
+            <div class="fm-status">
+              <span id="save-state" class="save-state" role="status"></span>
+              <button type="button" id="read-btn" class="icon-btn" aria-pressed="false" aria-label="Reading mode (⌘E)"><svg class="ic"><use href="#i-read"/></svg></button>
+            </div>
+          </div>
+          <div class="fm-grid">
+            <label for="f-type">Type</label>
+            <div><select id="f-type"></select></div>
+            <label for="f-summary">Summary</label>
+            <div class="sum">
+              <textarea id="f-summary" rows="1" aria-describedby="f-words" placeholder="One or two lines the pack can carry"></textarea>
+              <span id="f-words" class="words" aria-live="polite"></span>
+            </div>
+            <label for="f-pinned">Pinned</label>
+            <div><input type="checkbox" id="f-pinned" class="switch" role="switch"></div>
+            <span class="lbl">Updated</span>
+            <div><span id="f-updated" class="mono muted"></span></div>
+          </div>
+        </form>
+        <div class="editor" id="editor">
+          <div class="src">
+            <textarea id="editor-body" aria-label="Note body, Markdown" placeholder="Write here. [[ links a note." spellcheck="true"
+              aria-autocomplete="list" aria-controls="ac" aria-expanded="false"></textarea>
+          </div>
+          <article id="preview" class="prose" aria-label="Preview"></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="inspector" id="inspector" aria-label="Inspector">
+    <div class="resizer" data-pane="insp" role="separator" aria-orientation="vertical" aria-label="Resize inspector" aria-valuemin="260" aria-valuemax="420" tabindex="0"></div>
+    <div role="tablist" class="tabs" aria-label="Inspector">
+      <button type="button" role="tab" id="tab-links" aria-controls="panel-links" aria-selected="true">Links <span id="links-n" class="count"></span></button>
+      <button type="button" role="tab" id="tab-pack" aria-controls="panel-pack" aria-selected="false" tabindex="-1">Pack</button>
+    </div>
+    <div role="tabpanel" id="panel-links" class="panel" aria-labelledby="tab-links"></div>
+    <div role="tabpanel" id="panel-pack" class="panel pack" aria-labelledby="tab-pack" hidden>
+      <div class="pack-body">
+        <div class="presets" role="group" aria-label="Token budget">
+          <button type="button" data-budget="1500" aria-pressed="true">1.5K</button>
+          <button type="button" data-budget="3000" aria-pressed="false">3K</button>
+          <button type="button" data-budget="6000" aria-pressed="false">6K</button>
+          <button type="button" data-budget="12000" aria-pressed="false">12K</button>
+        </div>
+        <div class="fill" role="meter" id="fill" aria-label="Budget used" aria-valuemin="0"><div id="fill-bar"></div></div>
+        <div id="pack-list"></div>
+      </div>
+      <footer class="pack-foot">
+        <button type="button" id="copy-pack" class="btn-primary"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg><span id="copy-label">Copy pack</span><kbd>⌘⇧C</kbd><span id="pack-tokens" class="mono"></span></button>
+      </footer>
+    </div>
+  </aside>
+</div>
+
+<dialog id="qs" class="qs" aria-label="Go to note">
+  <div class="qs-in">
+    <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+    <input id="qs-input" role="combobox" aria-expanded="true" aria-controls="qs-list" aria-autocomplete="list" placeholder="Go to note.  / searches text" autocomplete="off" spellcheck="false">
+  </div>
+  <ul id="qs-list" role="listbox" aria-label="Notes"></ul>
+  <footer class="qs-foot"><span><kbd>↵</kbd> open</span><span><kbd>⌘↵</kbd> open in split</span><span><kbd>⇧↵</kbd> add to pack</span></footer>
+</dialog>
+
+<dialog id="ask" class="ask"></dialog>
+<ul id="ac" class="ac" role="listbox" aria-label="Link to note" hidden></ul>
+<div id="menu" class="menu" role="menu" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="/app/app.js"></script>
+</body>
+</html>

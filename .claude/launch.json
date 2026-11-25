@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "second-mind",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["server.py"],
+      "port": 7337
+    },
+    {
+      "name": "second-mind-test",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "SM_VAULT=/tmp/second-mind-test-vault",
+        "SM_PORT=7338",
+        "python3",
+        "server.py"
+      ],
+      "port": 7338
+    }
+  ]
+}

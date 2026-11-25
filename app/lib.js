@@ -132,3 +132,33 @@ export function orreryLayout(nodes) {
   }
   return out;
 }
+
+// Mirrors sm/vault.py slugify: the server derives ids from titles the same way.
+export function slugify(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64).replace(/^-+|-+$/g, "") || "untitled";
+}
+
+// Mirrors sm/links.py resolve, after stripping |alias and #heading.
+export function resolveTarget(raw, ids) {
+  const t = raw.split(/[|#]/, 1)[0].trim();
+  if (!t) return null;
+  if (ids.has(t)) return t;
+  if (ids.has(`shrestha/${t}`)) return `shrestha/${t}`;
+  const slug = slugify(t);
+  let hit = null;
+  for (const i of ids) {
+    if (i.slice(i.lastIndexOf("/") + 1) !== slug) continue;
+    if (hit) return null;
+    hit = i;
+  }
+  return hit;
+}
+
+// Search snippets are raw note text with <mark> markers: escape all, then restore only the markers.
+export function snippetHtml(s) {
+  return esc(s).replace(/&lt;(\/?)mark&gt;/g, "<$1mark>");
+}
+
+export function wordCount(s) {
+  return (s.match(/\S+/g) || []).length;
+}
