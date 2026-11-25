@@ -1,5 +1,6 @@
 // Second Mind app shell: tree, editor, links, search, packs. Talks only to the local JSON API.
 import { wikilinkQuery, rankMatches, renderMarkdown, breadcrumb, slugify, resolveTarget, snippetHtml, wordCount, formField, mergeMeta } from "./lib.js";
+import { renderGraph } from "./graph.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -15,7 +16,7 @@ const store = {
 
 const S = {
   view: "note", id: null, note: null, base: null, dirty: false, timer: 0, saving: null, again: false, conflict: null,
-  nodes: [], byId: new Map(), ids: new Set(), tree: null,
+  nodes: [], byId: new Map(), ids: new Set(), tree: null, graph: null,
   budget: 1500, include: new Set(), exclude: new Set(), touched: new Set(), pack: null, reading: false, down: false,
 };
 
@@ -104,7 +105,24 @@ async function refreshData() {
   S.nodes = graph.nodes;
   S.byId = new Map(graph.nodes.map((n) => [n.id, n]));
   S.ids = new Set([...S.byId.keys(), "inbox"]);
+  S.graph = graph;
   renderTree();
+  drawGraph();
+}
+
+// ---------- graph ----------
+
+let graphDrawn = null; // the payload the graph pane last drew
+function drawGraph() {
+  if (S.view === "note" || !S.graph) return;
+  renderGraph($("#graph-pane"), S.graph, { focusId: S.id, onOpen: openFromGraph, onPack: addToPack });
+  graphDrawn = S.graph;
+}
+
+// Click keeps focus in the graph; Enter moves it into the note (once the note has loaded).
+async function openFromGraph(id, how) {
+  await openNote(id, S.view === "split" ? "split" : "note");
+  if (how?.keyboard && S.note?.id === id) $("#editor-body").focus();
 }
 
 // ---------- routing ----------
@@ -122,6 +140,8 @@ async function route() {
   showView(view, false);
   if (id && id !== S.id) await loadNote(id);
   else if (!S.id) await loadNote("shrestha"); // the graph view still needs a current note for crumbs and the pack
+  else return;
+  drawGraph(); // the graph's focus follows the current note
 }
 
 /** Open a note. Graph clicks (Task 10) can pass "split" to keep the graph in view. */
@@ -133,10 +153,12 @@ export function openNote(id, view = S.view === "split" ? "split" : "note", repla
 
 export function showView(view, push = true) {
   if (!["note", "graph", "split"].includes(view)) return;
+  const prev = S.view;
   S.view = view;
   document.body.dataset.view = view;
   $("#graph-pane").hidden = view === "note";
   $("#note-pane").hidden = view === "graph";
+  if (view !== "note" && (prev === "note" || graphDrawn !== S.graph)) drawGraph();
   for (const b of $$(".views button")) b.setAttribute("aria-pressed", String(b.dataset.view === view));
   if (!push) return;
   const hash = view === "graph" ? "#/graph" : hashFor(view, S.id || "shrestha");
@@ -1083,6 +1105,34 @@ addEventListener("beforeunload", (e) => {
   e.returnValue = "";
 });
 
+// Split view divider: graph share of the centre, 30-70%.
+const centre = $("#centre"), splitHandle = $("#split-handle");
+function setSplit(p) {
+  p = Math.round(Math.max(30, Math.min(70, p)));
+  centre.style.setProperty("--split", `${p}%`);
+  splitHandle.setAttribute("aria-valuenow", String(p));
+  return p;
+}
+splitHandle.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  splitHandle.setPointerCapture(e.pointerId);
+  centre.classList.add("dragging");
+  const box = centre.getBoundingClientRect();
+  const move = (ev) => setSplit(((ev.clientX - box.left) / box.width) * 100);
+  splitHandle.addEventListener("pointermove", move);
+  splitHandle.addEventListener("pointerup", () => {
+    splitHandle.removeEventListener("pointermove", move);
+    centre.classList.remove("dragging");
+    store.set("sm-split", Number(splitHandle.getAttribute("aria-valuenow")));
+  }, { once: true });
+});
+splitHandle.addEventListener("keydown", (e) => {
+  const d = { ArrowLeft: -2, ArrowRight: 2 }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  store.set("sm-split", setSplit(Number(splitHandle.getAttribute("aria-valuenow")) + d));
+});
+
 // ---------- start ----------
 
 for (const which of ["side", "insp"]) {
@@ -1090,6 +1140,8 @@ for (const which of ["side", "insp"]) {
   setWidth(which, typeof w === "number" ? w : which === "side" ? 240 : 300);
   if (store.get(`sm-${which}-off`, false)) setPane(which, true);
 }
+const split = store.get("sm-split", 45);
+setSplit(typeof split === "number" ? split : 45);
 syncThemeButton();
 selectTab("links");
 try { await refreshData(); } catch {}

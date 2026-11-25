@@ -82,6 +82,8 @@ class LinksTest(unittest.TestCase):
         self.assertFalse(nodes["shrestha/a"]["stale"])
         self.assertTrue(nodes["shrestha/b"]["stale"])
         self.assertEqual(nodes["shrestha/b"]["type"], "project")
+        self.assertEqual(nodes["shrestha/b"]["updated"], "2026-01-01")
+        self.assertIsNone(nodes["shrestha/f"]["updated"])
         self.assertEqual(nodes["shrestha/f/c"]["parent"], "shrestha/f")
         self.assertIn("shrestha/f", nodes)  # synthesised folder node
         edges = [(e["source"], e["target"], e["kind"]) for e in g["edges"]]

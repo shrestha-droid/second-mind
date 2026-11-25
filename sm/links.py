@@ -60,7 +60,8 @@ def graph_payload(vault: Path, today: date | None = None) -> dict:
         parent = id.rsplit("/", 1)[0] if id.startswith("shrestha/") else None
         nodes[id] = {"id": id, "title": meta.get("title") or id.rsplit("/", 1)[-1],
                      "type": meta.get("type"), "stale": is_stale(meta, today),
-                     "parent": parent, "pinned": meta.get("pinned") is True}
+                     "parent": parent, "pinned": meta.get("pinned") is True,
+                     "updated": u if isinstance(u := meta.get("updated"), str) else None}
 
     for i in ids:
         if i != "inbox":

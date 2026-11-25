@@ -4,3 +4,4 @@ vault/
 __pycache__/
 *.db
 .DS_Store
+.gemini-out/
