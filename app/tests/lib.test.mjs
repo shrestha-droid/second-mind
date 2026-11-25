@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { wikilinkQuery, rankMatches, safeHref, renderMarkdown, breadcrumb, orreryLayout, slugify, resolveTarget, snippetHtml, wordCount } from "../lib.js";
+import { wikilinkQuery, rankMatches, safeHref, renderMarkdown, breadcrumb, orreryLayout, slugify, resolveTarget, snippetHtml, wordCount, formField, mergeMeta } from "../lib.js";
 
 test("wikilinkQuery", () => {
   assert.deepEqual(wikilinkQuery("see [[jar", 9), { start: 4, query: "jar" });
@@ -163,4 +163,33 @@ test("snippetHtml escapes all but mark", () => {
 test("wordCount", () => {
   assert.equal(wordCount(""), 0);
   assert.equal(wordCount("  one two\nthree "), 3);
+});
+
+test("formField: the form edits only keys of its own type, never raw blocks", () => {
+  const m = { title: "T", summary: ["a"], pinned: "yes", _raw_lines: ["tags:", "  - x", "summary2: [bad"] };
+  assert.equal(formField(m, "title", "string"), "T");
+  assert.equal(formField(m, "summary", "string"), null); // non-string summary
+  assert.equal(formField(m, "pinned", "boolean"), null); // pinned: "yes"
+  assert.equal(formField(m, "type", "string"), ""); // missing: editable, empty
+  assert.equal(formField({}, "pinned", "boolean"), false);
+  assert.equal(formField({ _raw_lines: ["summary: |", "  long"] }, "summary", "string"), null);
+  assert.equal(formField(m, "tags", "string"), null);
+  assert.equal(formField(m, "summary2", "string"), null); // unparseable line kept raw
+});
+
+test("mergeMeta writes only touched fields the form may edit", () => {
+  const form = { title: "New", type: "note", summary: "", pinned: false };
+  // untouched: hand-edited values and missing keys survive as they were
+  const orig = { title: "Old", summary: 42, pinned: "yes", custom: 1 };
+  assert.deepEqual(mergeMeta(orig, form, new Set()), orig);
+  assert.deepEqual(mergeMeta(orig, form, new Set(["title"])), { ...orig, title: "New" });
+  assert.equal("summary" in mergeMeta({ title: "x" }, form, new Set(["title"])), false);
+  assert.equal("pinned" in mergeMeta({ title: "x" }, form, new Set(["title"])), false);
+  // a touched field of the wrong type, or a raw block, is never overwritten or duplicated
+  assert.equal(mergeMeta(orig, form, new Set(["summary", "pinned"])).summary, 42);
+  assert.equal(mergeMeta(orig, form, new Set(["summary", "pinned"])).pinned, "yes");
+  const raw = { title: "x", _raw_lines: ["summary: |", "  long text"] };
+  assert.deepEqual(mergeMeta(raw, form, new Set(["summary"])), raw);
+  // a missing key the user filled in is added
+  assert.deepEqual(mergeMeta({}, { ...form, pinned: true }, new Set(["pinned"])), { pinned: true });
 });

@@ -1,5 +1,5 @@
 // Second Mind app shell: tree, editor, links, search, packs. Talks only to the local JSON API.
-import { wikilinkQuery, rankMatches, renderMarkdown, breadcrumb, slugify, resolveTarget, snippetHtml, wordCount } from "./lib.js";
+import { wikilinkQuery, rankMatches, renderMarkdown, breadcrumb, slugify, resolveTarget, snippetHtml, wordCount, formField, mergeMeta } from "./lib.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -16,7 +16,7 @@ const store = {
 const S = {
   view: "note", id: null, note: null, base: null, dirty: false, timer: 0, saving: null, again: false, conflict: null,
   nodes: [], byId: new Map(), ids: new Set(), tree: null,
-  budget: 1500, include: new Set(), exclude: new Set(), pack: null, reading: false, down: false,
+  budget: 1500, include: new Set(), exclude: new Set(), touched: new Set(), pack: null, reading: false, down: false,
 };
 
 // ---------- small DOM helpers (text always goes in as text nodes) ----------
@@ -154,7 +154,9 @@ export function addToPack(id) {
 
 // Save edits to the open note before another replaces it. False: it could not be saved, so it stays open.
 async function canLeave(id) {
-  if (!S.note || !S.dirty || id === S.note.id) return true;
+  if (!S.note || id === S.note.id) return true;
+  if (S.saving) await S.saving; // a save in flight can still fail: wait for its answer
+  if (!S.dirty) return true;
   await save();
   if (!S.dirty) return true;
   toast("This note is not saved yet, so it stays open.");
@@ -184,12 +186,23 @@ function setNote(n) {
   Object.assign(S, { note: n, id: n.id, base: n.mtime_ns, dirty: false, again: false });
   hideConflict();
   const m = n.meta;
-  $("#f-title").value = m.title ?? "";
-  const sel = $("#f-type"), types = !m.type || TYPES.includes(m.type) ? TYPES : [...TYPES, String(m.type)];
+  S.touched = new Set();
+  // A field hand-edited into another type or a raw YAML block is shown locked, never rewritten.
+  const field = (sel, key, type, prop = "value") => {
+    const v = formField(m, key, type), el = $(sel);
+    el[prop] = v ?? (prop === "checked" ? false : m[key] == null ? "" : String(m[key]));
+    el.disabled = v === null;
+    el.title = v === null ? "Edited by hand in the file. Change it there." : "";
+    return v;
+  };
+  field("#f-title", "title", "string");
+  const sel = $("#f-type"), type = formField(m, "type", "string");
+  const types = !type || TYPES.includes(type) ? TYPES : [...TYPES, type];
   sel.replaceChildren(...types.map((t) => h("option", { value: t }, t)));
-  sel.value = m.type || "note";
-  $("#f-summary").value = typeof m.summary === "string" ? m.summary : "";
-  $("#f-pinned").checked = m.pinned === true;
+  field("#f-type", "type", "string");
+  if (!type) sel.value = "note";
+  field("#f-summary", "summary", "string");
+  field("#f-pinned", "pinned", "boolean", "checked");
   $("#f-updated").textContent = m.updated ?? "never";
   const body = $("#editor-body");
   body.value = n.body;
@@ -211,13 +224,13 @@ function setSaveState(text, bad = false) {
   el.classList.toggle("bad", bad);
 }
 
-const collectMeta = () => ({
-  ...S.note.meta,
+// Only fields the user changed are written, so hand-edited frontmatter survives a body edit.
+const collectMeta = () => mergeMeta(S.note.meta, {
   title: $("#f-title").value,
   type: $("#f-type").value,
   summary: $("#f-summary").value,
   pinned: $("#f-pinned").checked,
-});
+}, S.touched);
 
 function edited() {
   if (!S.note) return;
@@ -251,6 +264,7 @@ function save() {
       if (relinked) refreshData().then(() => { renderCrumbs(); renderPreview(); }).catch(() => {});
       schedulePack();
     } catch (e) {
+      if (S.note?.id !== id) { toast(`“${before.meta.title || id}” was not saved: ${errText(e)}`); return; } // never touch another note
       S.dirty = true;
       if (e.status === 409) showConflict(e.data.current);
       else if (e.status === 0) setSaveState("Offline, kept here", true);
@@ -729,9 +743,16 @@ async function afterMove(oldId, newId) {
     clearTimeout(S.timer);
     Object.assign(S, { dirty: false, id: null, note: null });
     await openNote(newId ? newId + cur.slice(oldId.length) : parentOf(oldId), S.view === "split" ? "split" : "note", true);
+  } else if (S.dirty || S.conflict) {
+    // Pending edits go through save: a link the move rewrote in this note turns into a 409 and the
+    // conflict banner, never an overwrite. A note in conflict stays as it is.
+    await save();
+    renderPreview();
   } else {
-    S.id = null;
-    await loadNote(cur);
+    try {
+      const n = await api("GET", `/api/note?id=${encodeURIComponent(cur)}`);
+      if (S.note?.id === cur && !S.dirty && !S.conflict && !S.saving) setNote(n); // typed during the GET: keep it
+    } catch {}
   }
 }
 
@@ -972,10 +993,11 @@ preview.addEventListener("keydown", (e) => {
   if (a && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openMissing(a); }
 });
 
-$("#f-title").addEventListener("input", edited);
-$("#f-type").addEventListener("change", edited);
-$("#f-pinned").addEventListener("change", edited);
-$("#f-summary").addEventListener("input", () => { words(); edited(); });
+const touch = (key) => () => { S.touched.add(key); edited(); };
+$("#f-title").addEventListener("input", touch("title"));
+$("#f-type").addEventListener("change", touch("type"));
+$("#f-pinned").addEventListener("change", touch("pinned"));
+$("#f-summary").addEventListener("input", () => { words(); touch("summary")(); });
 $("#read-btn").addEventListener("click", () => setReading(!S.reading));
 $("#c-reload").addEventListener("click", () => { const c = S.conflict; hideConflict(); setNote(c); });
 $("#c-keep").addEventListener("click", () => { S.base = S.conflict.mtime_ns; hideConflict(); S.dirty = true; save(); });

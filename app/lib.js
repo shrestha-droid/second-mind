@@ -162,3 +162,21 @@ export function snippetHtml(s) {
 export function wordCount(s) {
   return (s.match(/\S+/g) || []).length;
 }
+
+// The form edits title, type, summary (strings) and pinned (boolean). A key kept as a raw YAML block,
+// or holding another type, was hand-edited: the form shows it read-only (null) and never writes it.
+export function formField(meta, key, type) {
+  if ((meta._raw_lines ?? []).some((l) => l.startsWith(`${key}:`))) return null;
+  const v = meta[key];
+  if (v === undefined) return type === "boolean" ? false : "";
+  return typeof v === type ? v : null;
+}
+
+// Meta to save: the loaded meta, with only the fields the user touched taken from the form.
+export function mergeMeta(original, form, touched) {
+  const out = { ...original };
+  for (const k of touched) {
+    if (k in form && formField(original, k, typeof form[k]) !== null) out[k] = form[k];
+  }
+  return out;
+}
