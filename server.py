@@ -37,7 +37,8 @@ def _title(vault: Path, id: str) -> str:
 def note_json(vault: Path, n) -> dict:
     li = link_index(vault)
     ref = lambda i: {"id": i, "title": _title(vault, i)}
-    return {"id": n.id, "meta": n.meta, "body": n.body, "mtime_ns": n.mtime_ns,
+    return {"id": n.id, "meta": n.meta, "body": n.body,
+            "mtime_ns": str(n.mtime_ns),  # string: JS cannot hold 19 digits exactly
             "backlinks": [ref(i) for i in li["back"].get(n.id, [])],
             "outlinks": [ref(i) for i in li["out"].get(n.id, [])],
             "missing": li["missing"].get(n.id, [])}

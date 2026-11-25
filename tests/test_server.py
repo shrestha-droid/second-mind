@@ -123,10 +123,20 @@ class ServerTest(unittest.TestCase):
         s, _ = self.send("PUT", "/api/note", {"id": a["id"], "meta": a["meta"], "body": ""})
         self.assertEqual(s, 400)
 
-    def test_put_accepts_string_base(self):
+    def test_get_then_put_echoing_string_mtime(self):
+        a = self.create("Alpha")
+        s, n = self.get(f"/api/note?id={a['id']}")
+        self.assertIsInstance(n["mtime_ns"], str)
+        self.assertTrue(n["mtime_ns"].isdigit())
+        s, out = self.send("PUT", "/api/note", {"id": n["id"], "meta": n["meta"], "body": "x",
+                                                "base_mtime_ns": n["mtime_ns"]})
+        self.assertEqual(s, 200)
+        self.assertIsInstance(out["mtime_ns"], str)
+
+    def test_put_accepts_int_base(self):
         a = self.create("Alpha")
         s, _ = self.send("PUT", "/api/note", {"id": a["id"], "meta": a["meta"], "body": "x",
-                                              "base_mtime_ns": str(a["mtime_ns"])})
+                                              "base_mtime_ns": int(a["mtime_ns"])})
         self.assertEqual(s, 200)
 
     def test_index_failure_does_not_500_a_write(self):
