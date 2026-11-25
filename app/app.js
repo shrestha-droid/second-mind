@@ -152,21 +152,26 @@ export function addToPack(id) {
 
 // ---------- note load / save ----------
 
+// Save edits to the open note before another replaces it. False: it could not be saved, so it stays open.
+async function canLeave(id) {
+  if (!S.note || !S.dirty || id === S.note.id) return true;
+  await save();
+  if (!S.dirty) return true;
+  toast("This note is not saved yet, so it stays open.");
+  S.id = S.note.id;
+  history.replaceState(null, "", hashFor(S.view, S.note.id));
+  return false;
+}
+
 let loadSeq = 0;
 async function loadNote(id) {
-  if (S.note && S.dirty && id !== S.note.id) {
-    await save();
-    if (S.dirty) {
-      toast("This note is not saved yet, so it stays open.");
-      history.replaceState(null, "", hashFor(S.view, S.note.id));
-      return;
-    }
-  }
+  if (!(await canLeave(id))) return;
   const seq = ++loadSeq;
   S.id = id;
   try {
     const n = await api("GET", `/api/note?id=${encodeURIComponent(id)}`);
-    if (seq === loadSeq) setNote(n);
+    // The old note stays editable while the GET is in flight: save what was typed meanwhile, never drop it.
+    if (seq === loadSeq && (await canLeave(n.id)) && seq === loadSeq) setNote(n);
   } catch (e) {
     if (seq !== loadSeq || e.status === 0) return;
     toast(`No note at ${id}.`);
@@ -642,17 +647,17 @@ async function askCreate({ parent = S.note?.id || "shrestha", title = "" } = {})
       { name: "folder", label: "Folder: it will hold other notes", type: "check" },
     ],
     ok: "Create",
+    // Open the new note before the dialog closes, so keys typed after Create land in it, not in the old note.
     onSubmit: async (v) => {
       if (!v.title.trim()) return "Give it a title.";
       try { made = await api("POST", "/api/note", { parent: v.parent, title: v.title.trim(), type: v.type, folder: v.folder }); }
       catch (e) { return errText(e); }
+      try { await refreshData(); } catch {}
+      if (S.note) renderPreview(); // a missing link may now resolve
+      await openNote(made.id, S.view === "split" ? "split" : "note");
     },
   });
-  if (!v || !made) return;
-  await refreshData();
-  if (S.note) renderPreview(); // a missing link may now resolve
-  await openNote(made.id, S.view === "split" ? "split" : "note");
-  $("#editor-body").focus();
+  if (v && made && S.note?.id === made.id) $("#editor-body").focus();
 }
 
 async function askRename(id) {
