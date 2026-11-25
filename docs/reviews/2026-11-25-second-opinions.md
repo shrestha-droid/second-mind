@@ -18,7 +18,7 @@ Inputs: first draft of `docs/superpowers/specs/2026-11-25-second-mind-design.md`
 ## Gemini only
 - Adopted: SQLite FTS5 (stdlib) for ranked search; `pinned` flag; stale-summary warnings (context rot).
 - Known gap, not v1: merging a new distilled chat into existing notes.
-- Not adopted as stated: "drop the custom graph UI, use Obsidian". The visual graph is the point for Shrestha; instead Obsidian covers viewing during phase 1 and the graph page comes in phase 2.
+- Not adopted as stated: "drop the custom graph UI, use Obsidian". The visual graph is the point for Shrestha; Shrestha chose to build their own free, local Obsidian-style app, and it is phase 1.
 
 ## Builder check (Sonnet) — resolved in the doc
 Git/remote layout, mount metadata and placement, meter baseline (meter dropped), MCP read restrictions + redaction, extension node picker, server lifecycle + venv path.

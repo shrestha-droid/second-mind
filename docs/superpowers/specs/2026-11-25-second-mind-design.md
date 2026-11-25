@@ -13,7 +13,7 @@ The core idea: **disk is unlimited and free, context is small and costly.** Ever
 ## Goals
 
 1. Everything revolves around Shrestha: one tree rooted at `Shrestha`, e.g. `Shrestha › Branch HQ › Internal work`. The path is the address and the breadcrumb.
-2. A visual graph page (Obsidian-like) showing the tree plus cross-links between branches.
+2. Its own Obsidian: a free, local app to browse, write and link notes, with a graph view showing the tree plus cross-links between branches. Shrestha wants this built, not borrowed from Obsidian.
 3. Context packs: pick a node, get ancestor summaries + the node + its most relevant links, cut at a token budget, with the estimated count shown. Zero model calls.
 4. Local AI tools connect directly via one MCP server; web chats via a Chrome extension.
 5. Claude setup is part of the mind: `~/.claude/skills/*`, `CLAUDE.md`, `AGENTS.md` and memory files appear as nodes (read-only in v1).
@@ -40,7 +40,7 @@ The core idea: **disk is unlimited and free, context is small and costly.** Ever
 
 - macOS laptop, Chrome. Local only.
 - Small: no framework. Python stdlib (`http.server`, `sqlite3`) where possible; the MCP server may use the official `mcp` SDK in a venv.
-- Vault stays Obsidian-compatible (markdown + `[[links]]`), so Obsidian can always open it.
+- Vault stays plain markdown + `[[links]]` (Obsidian-compatible), so the notes never depend on the app.
 - Build cheaply on usage: Opus plans, Sonnet builds logic, the graph page (visual) is built by Opus with a `ui-ux-pro-max` design pass and a browser check.
 
 ## Approaches considered
@@ -124,15 +124,20 @@ graph page ◀── local server (Python stdlib, 127.0.0.1, Host/Origin/token c
 Chrome extension (Capture / Insert pack / Distill) ──POST + token──┘
 ```
 
-### Graph page
-- Radial tree with Shrestha at the centre; tree edges solid, cross-links dashed; Claude-setup nodes styled distinctly; stale nodes marked.
-- Click a node: side panel with breadcrumb, summary, body editor (vault notes only), links/backlinks, **Copy pack** with ≈ token count and the include/exclude list.
-- Search box (FTS5); inbox count badge.
+### The app (own Obsidian), served at `http://127.0.0.1:<port>`
+- **Sidebar:** the tree from `shrestha` down; create, rename, move, delete (delete goes to `vault/.trash/`, never hard-deleted).
+- **Note view:** markdown editor with a rendered preview; frontmatter fields (title, type, summary, pinned) as a small form above the body; autosave with atomic writes.
+- **Links:** `[[` autocomplete from note paths/titles; clicking a link opens the note; a link to a missing note offers to create it; backlinks panel under each note. Rename/move rewrites `[[links]]` that point at the old path (builder's call, marked).
+- **Graph view:** radial tree with Shrestha at the centre; tree edges solid, cross-links dashed; Claude-setup nodes styled distinctly (once mounts land); stale nodes marked; click a node to open it; filter to the current branch.
+- **Search:** search box (FTS5) and a quick switcher (Cmd+K) to jump to any note.
+- **Pack panel:** **Copy pack** with ≈ token count and the include/exclude list.
+- Inbox count badge.
+- Not in v1: plugins, themes marketplace, canvas, daily notes, sync, mobile.
 
-## Phases (reordered: stable interfaces first, brittle extension last)
+## Phases (Shrestha's own Obsidian first, brittle extension last)
 
-1. Vault + seed tree + pack builder + FTS5 search + MCP server for Claude Code. Shrestha views and edits the vault in Obsidian meanwhile. **Usable on its own.**
-2. Local server + graph page (+ read-only mounts).
+1. Vault + seed tree + FTS5 search + pack builder + local server + **the app** (sidebar, editor, links, backlinks, graph, search, pack panel). **Usable on its own.**
+2. MCP server for Claude Code, then read-only mounts of the Claude setup.
 3. Extra MCP clients (Codex CLI, Gemini CLI, Claude desktop), each verified.
 4. Chrome extension: Capture, Insert pack, Distill-in-this-chat.
 
@@ -140,10 +145,10 @@ Each phase is checked in use before the next.
 
 ## Left to the builder
 
-- Graph library (force-graph vs Cytoscape), vendored locally.
+- Graph library (force-graph vs Cytoscape), markdown renderer and editor component: all vendored locally, no CDN, no build step if avoidable.
 - MCP: official Python `mcp` SDK in `.venv` (preferred) unless it fights a client.
 - API shapes, FTS ranking details, port number.
-- Visual design of the graph page (Opus + `ui-ux-pro-max`, checked in the browser).
+- Visual design of the app (Opus + `ui-ux-pro-max`, Gemini design direction, checked in the browser).
 
 ## After it ships
 
