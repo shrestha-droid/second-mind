@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Phase 1 uses Python stdlib only: no pip, no venv. JS has no npm dependencies; the only vendored file is `app/vendor/marked.esm.js`. No CDN, no build step.
+- Phase 1 uses Python stdlib only: no pip, no venv. JS has no npm dependencies; the only vendored files are `app/vendor/marked.esm.js` and the woff2 fonts in `app/vendor/fonts/` (IBM Plex Sans, IBM Plex Mono, Source Serif 4; OFL). No CDN, no build step.
 - Zero model calls anywhere in phase 1.
 - Server binds `127.0.0.1` only, port `7337` (plan's call). Tests use port 0.
 - Vault: `~/second-mind/vault`, its own git repo, **no remote, ever**; already ignored by the code repo (`vault/` in `.gitignore`). `.token` never committed.
@@ -22,7 +22,7 @@
 - Inbox notes never enter a pack unless explicitly included.
 - Breadcrumb separator: `›`. Product name: "Second Mind".
 - Writes are atomic: temp file in the same folder + `os.replace`.
-- Visual work (Tasks 9-10) is built by Opus after loading `ui-ux-pro-max`, from a Gemini design-direction file, and checked in the browser.
+- Visual work (Tasks 9-10) is built by Opus after loading `ui-ux-pro-max`, from `docs/design/app-direction.md` ("Orrery": tokens, type, layout, graph, motion; already written), and checked in the browser in dark and light. Where that file is more specific than a task's Behaviour list, the file wins. The bar: as aesthetic as possible, exact, calm; no generic SaaS look.
 - Test command (Python): `cd ~/second-mind && python3 -m unittest discover -s tests -v`. JS: `cd ~/second-mind && node --test app/tests/`.
 
 ## Review Focus
@@ -79,7 +79,7 @@ README.md           how to run                                       (Task 11)
 **Frontmatter format (plan's call: a YAML subset we both read and write, still valid YAML for Obsidian):** block between first-line `---` and next `---`. Each line `key: value`. Value starting with `"` or `[` → `json.loads`; `true`/`false` → bool; else stripped bare string. Unparseable lines are kept under `meta["_raw_lines"]` and written back verbatim. `dump_note` writes strings with `json.dumps(ensure_ascii=False)`, bools lowercase, lists as JSON; key order preserved. The spec's `source: {...}` becomes three flat keys `source_ai`, `source_url`, `captured`.
 
 - [ ] **Step 1: Write failing tests** in `tests/test_vault.py`:
-  - `test_roundtrip`: `parse_note(dump_note({"title":"Internal work","type":"area","links":["[[shrestha/jarvis]]"],"pinned":False}, "Body"))` returns the same dict and `"Body"`.
+  - `test_roundtrip`: `parse_note(dump_note({"title":"Internal work","type":"area","links":["[[shrestha/builds/jarvis]]"],"pinned":False}, "Body"))` returns the same dict and `"Body"`.
   - `test_parse_tolerant`: no frontmatter → `({}, text)`; CRLF text parses same as LF; line `weird: {a: 1` lands in `_raw_lines` and survives `dump_note`→`parse_note`; unknown key `colour: "red"` is preserved.
   - `test_ids`: `valid_id("shrestha/branch-hq")` True; `"shrestha/../x"`, `"shrestha/_raw"`, `"shrestha/.trash"`, `"other"`, `"shrestha/Bad"` False; `note_path` raises ValueError for them.
   - `test_note_path_folder_vs_leaf`: folder `shrestha/jarvis/` → `.../jarvis/_index.md`; leaf → `.../idea.md`.
@@ -147,13 +147,13 @@ Algorithm (spec §Context pack): always include ancestor summaries root→parent
 
 Text layout:
 ```
-# Context pack: Shrestha › Branch HQ › Internal work (≈N tokens)
+# Context pack: Shrestha › Work › Branch HQ › Internal work (≈N tokens)
 ## Path
 - Shrestha (updated 2026-11-25): …
 ## Note: Internal work
 …
 ## Linked
-- [[shrestha/jarvis]] Jarvis: …
+- [[shrestha/builds/jarvis]] Jarvis: …
 ## Left out
 - [[…]] …
 ```
@@ -168,7 +168,7 @@ Text layout:
 
 **Interfaces — Consumes:** Task 1 `write_note`. **Produces:** `SEED: list[tuple[str, str, str]]` (id, title, type) and `seed(vault: Path) -> list[str]` (ids created; never overwrites existing files; idempotent), `init_repo(vault: Path) -> None` (`git init` if no `.git`; writes vault `.gitignore` with `_raw/`, `.index.db`, `.index.db-*`, `.trash/`; never adds a remote).
 
-SEED (plan's call; `branch-pay` top-level, movable later): `shrestha` "Shrestha" person; `shrestha/branch-hq` "Branch HQ" project; `shrestha/branch-hq/internal-work` "Internal work" area; `shrestha/branch-pay` "Branch Pay" project; `shrestha/jarvis` "Jarvis"; `shrestha/conclave` "Conclave"; `shrestha/gemma-hackathon` "Gemma hackathon"; `shrestha/youtube` "YouTube"; `shrestha/nest-5782` "Nest 5782"; `shrestha/claude-setup` "Claude setup" area; plus empty folder `inbox` with `_index.md` "Inbox". All folders, summaries empty.
+SEED (confirmed by Shrestha; spec §Seed tree): `shrestha` "Shrestha" person; branches (type `area`): `shrestha/work` "Work", `shrestha/college` "College", `shrestha/social` "Social", `shrestha/competitions` "Competitions & hackathons", `shrestha/builds` "Builds"; under them (type `project` unless noted): `shrestha/work/branch-hq` "Branch HQ", `shrestha/work/branch-hq/internal-work` "Internal work" (area), `shrestha/work/money` "Money" (area), `shrestha/social/youtube` "YouTube", `shrestha/competitions/branch-pay` "Branch Pay", `shrestha/competitions/gemma-hackathon` "Gemma hackathon", `shrestha/builds/jarvis` "Jarvis", `shrestha/builds/conclave` "Conclave", `shrestha/builds/claude-setup` "Claude setup" (area), `shrestha/builds/nest-5782` "OWASP Nest"; plus folder `inbox` with `_index.md` "Inbox". All folders, summaries empty. `test_seed_creates_tree` asserts exactly these 16 ids.
 
 - [ ] **Step 1: Failing tests:** `test_seed_creates_tree` (all ids in `all_ids`); `test_seed_idempotent` (second run returns `[]`, edited summary untouched); `test_init_repo` (`.git` exists, `git remote` output empty, `.gitignore` has `_raw/`).
 - [ ] **Step 2:** FAIL. **Step 3:** Implement. **Step 4:** PASS.
@@ -204,7 +204,7 @@ Security, every request: `Host` must equal `127.0.0.1:<port>` or `localhost:<por
 
 ### Task 8: Frontend logic (`app/lib.js`) and vendored markdown
 
-**Files:** Create `app/lib.js`, `app/tests/lib.test.mjs`, `app/vendor/marked.esm.js`, `app/vendor/VERSIONS.md`
+**Files:** Create `app/lib.js`, `app/tests/lib.test.mjs`, `app/vendor/marked.esm.js`, `app/vendor/fonts/*.woff2`, `app/vendor/VERSIONS.md`
 
 **Interfaces — Produces (ES module exports):**
 - `wikilinkQuery(text: string, cursor: number) -> {start: number, query: string} | null` — open `[[` before cursor with no `]]` or newline between.
@@ -212,41 +212,41 @@ Security, every request: `Host` must equal `127.0.0.1:<port>` or `localhost:<por
 - `safeHref(href: string) -> string | null` — allows `http:`, `https:`, `mailto:`, `#…`, and relative paths; everything else (incl. `javascript:`, `data:`, `vbscript:`, whitespace/case tricks) → null.
 - `renderMarkdown(md: string, resolve: (target) => string | null) -> string` — uses vendored `marked` with: raw HTML escaped (never passed through), links through `safeHref` (null → plain text), images same rule, `[[t|a]]` → `<a class="wikilink" href="#/n/<id>">a</a>` or `<a class="wikilink missing" data-target="t">a</a>`.
 - `breadcrumb(id: string, titleOf: (id) => string) -> {id,title}[]`
-- `radialLayout(nodes: {id,parent}[], rootId: string, ringGap = 160) -> Map<string,{x,y}>` — root at (0,0); depth d on radius `d*ringGap`; each subtree gets an angle span proportional to its leaf count; children ordered as given.
+- `orreryLayout(nodes: {id,parent,links}[]) -> Map<string,{x,y,depth,branch}>` — deterministic, per `app-direction.md` §Graph: `shrestha` at (0,0); branches on r=150 at bearings Work −54°, College 18°, Social 90°, Competitions 162°, Builds 234° (0° = +x, clockwise, SVG coords); depth-2 nodes sorted by id, spread evenly across a 56° sector centred on the parent's bearing, radius 255–330 (alternating when > 4); depth 3+ 38–58 px beyond the parent along its bearing; `inbox/*` evenly on r=72 between −120° and −60°. `branch` = second id segment, `"inbox"` or `null` for the root.
 
-- [ ] **Step 1: Ask Shrestha** before downloading: `marked` latest release `lib/marked.esm.js` from npm/unpkg, ~40 KB. On yes, save to `app/vendor/marked.esm.js`, record version + URL + sha256 in `VERSIONS.md`.
-- [ ] **Step 2: Failing tests** in `app/tests/lib.test.mjs` (`node:test`, `node:assert`): `wikilinkQuery` (`"see [[jar"` cursor end → `{start:4, query:"jar"}`; closed link → null; across newline → null); `rankMatches` order; `safeHref` (`"JaVaScRiPt:alert(1)"`, `" javascript:x"`, `"data:text/html,x"` → null; `"https://a.b"`, `"#/n/x"` kept); `renderMarkdown escapes html` (`<script>x</script>` and `<img src=x onerror=y>` appear escaped, no `<script` tag in output); `renderMarkdown wikilinks` (resolved and missing); `radialLayout` (root at 0,0; child distances equal `ringGap`; two leaves under root are π apart).
+- [ ] **Step 1: Ask Shrestha** before downloading (one ask): `marked` latest release `lib/marked.esm.js` from npm/unpkg (~40 KB), and the woff2 files for IBM Plex Sans, IBM Plex Mono and Source Serif 4 from their official GitHub releases (~300 KB total). On yes, save to `app/vendor/`, record version + URL + sha256 of each in `VERSIONS.md`. On no, the app uses the system fallbacks in `app-direction.md`.
+- [ ] **Step 2: Failing tests** in `app/tests/lib.test.mjs` (`node:test`, `node:assert`): `wikilinkQuery` (`"see [[jar"` cursor end → `{start:4, query:"jar"}`; closed link → null; across newline → null); `rankMatches` order; `safeHref` (`"JaVaScRiPt:alert(1)"`, `" javascript:x"`, `"data:text/html,x"` → null; `"https://a.b"`, `"#/n/x"` kept); `renderMarkdown escapes html` (`<script>x</script>` and `<img src=x onerror=y>` appear escaped, no `<script` tag in output); `renderMarkdown wikilinks` (resolved and missing); `orreryLayout` (root at 0,0; `shrestha/work` at distance 150 and angle −54°; every `shrestha/builds/*` child within ±28° of 234° and at radius 255–330; an `inbox/x` node at r=72 between −120° and −60°; calling twice on shuffled input gives identical maps).
 - [ ] **Step 3:** Run `node --test app/tests/` → FAIL. **Step 4:** Implement `app/lib.js`. **Step 5:** Run → PASS.
 - [ ] **Step 6:** `git commit -m "feat: frontend logic and vendored marked"`
 
 ### Task 9: The app shell — sidebar, editor, links, backlinks, search, pack panel
 
-**Files:** Create `app/index.html`, `app/app.css`, `app/app.js`, `.claude/launch.json`, `docs/design/app-direction.md` (from Gemini)
+**Files:** Create `app/index.html`, `app/app.css`, `app/app.js`, `.claude/launch.json`. Read: `docs/design/app-direction.md`
 
-**Interfaces — Consumes:** Task 7 API, Task 8 `lib.js`. **Produces:** `app.js` exports `openNote(id)` and `showView("note" | "graph")` used by Task 10; hash routes `#/n/<id>` and `#/graph`.
+**Interfaces — Consumes:** Task 7 API, Task 8 `lib.js`. **Produces:** `app.js` exports `openNote(id)` and `showView("note" | "graph" | "split")` used by Task 10; hash routes `#/n/<id>`, `#/graph`, `#/split/<id>`.
 
 Behaviour (spec §The app):
 - Layout: left sidebar (tree from `/api/tree`, collapsible, inbox section with count badge, "+" to create child note or folder, right-click/menu: rename, move, trash), centre note pane, right panel (backlinks, outlinks, missing links, pack).
-- Note pane: breadcrumb (`›`, clickable); frontmatter form (title, type select of `person|project|area|task|chat|note`, summary textarea with live word count warning above 100, pinned toggle); body textarea with Edit/Preview toggle (preview via `renderMarkdown`); autosave 800 ms after last keystroke via PUT with `base_mtime_ns`; on 409 show banner "Changed on disk" with **Reload** and **Keep mine** (Keep mine re-PUTs with the new `mtime_ns`).
+- Note pane: breadcrumb (`›`, clickable); frontmatter form (title, type select of `person|project|area|task|chat|note`, summary textarea with live word count warning above 100, pinned toggle); body textarea with the rendered preview beside it (via `renderMarkdown`; ⌘E toggles reading mode); autosave 800 ms after last keystroke via PUT with `base_mtime_ns`; on 409 show banner "Changed on disk" with **Reload** and **Keep mine** (Keep mine re-PUTs with the new `mtime_ns`).
 - `[[` autocomplete in the textarea from `/api/graph` nodes via `wikilinkQuery` + `rankMatches`; Enter/Tab inserts `[[id]]`. Clicking a missing link offers "Create note".
 - Search box (debounced 200 ms, `/api/search`); quick switcher on Cmd+K (`rankMatches` over graph nodes).
-- Pack panel: budget input (default 1500), include/exclude lists, **Copy pack** copies `text` to clipboard, shows `≈N tokens` and omitted list.
+- Pack panel: budget presets 1.5K/3K/6K/12K (default 1500) plus fill bar, include/exclude checkboxes, **Copy pack** copies `text` to clipboard, shows `≈N tokens` and omitted list.
 - All writes send `X-SM-Token` from `<meta name="sm-token" content="{{TOKEN}}">`.
 - Keyboard reachable; visible focus; works at 1280 px and 1920 px wide.
 
-- [ ] **Step 1:** Run the `gemini` skill in the background for design direction (palette hex, type pairing, layout, motion; "a personal second brain, calm, dense, keyboard-first, dark and light"), saved to `docs/design/app-direction.md`. Gemini never edits code.
-- [ ] **Step 2:** Load `ui-ux-pro-max`; build `index.html`, `app.css`, `app.js` from the direction file (Opus).
+- [ ] **Step 1:** Read `docs/design/app-direction.md` (done: Gemini 4 Neon direction, contrast verified).
+- [ ] **Step 2:** Load `ui-ux-pro-max`; build `index.html`, `app.css`, `app.js` from the direction file (Opus): tokens as CSS variables, both themes, top bar, sidebar, note pane, inspector, Cmd+K, motion and reduced-motion.
 - [ ] **Step 3:** Add `.claude/launch.json` config `second-mind` → `python3 server.py`, port 7337; `preview_start`.
-- [ ] **Step 4: Browser check** (built-in browser): create a note under Branch HQ, type `[[jar` and pick Jarvis, see backlink on Jarvis, rename the note and confirm the link still opens, edit the file on disk from the shell while open and see the conflict banner, Cmd+K to a note, search "internal", copy a pack and see ≈ tokens, preview a note containing `<script>alert(1)</script>` and confirm nothing runs. Zero console errors.
+- [ ] **Step 4: Browser check** (built-in browser): create a note under Branch HQ, type `[[jar` and pick Jarvis, see backlink on Jarvis, rename the note and confirm the link still opens, edit the file on disk from the shell while open and see the conflict banner, Cmd+K to a note, search "internal", copy a pack and see ≈ tokens, preview a note containing `<script>alert(1)</script>` and confirm nothing runs, switch dark/light and screenshot both, emulate reduced motion. Zero console errors.
 - [ ] **Step 5:** `git commit -m "feat: app shell, editor, links, search, packs"`
 
 ### Task 10: Graph view
 
 **Files:** Create `app/graph.js`; Modify `app/app.js` (route `#/graph`, toolbar button), `app/app.css`
 
-**Interfaces — Consumes:** `/api/graph`, `lib.radialLayout`, `app.openNote`. **Produces:** `renderGraph(container: HTMLElement, payload, {focusId?: string, onOpen: (id) => void}) -> void`.
+**Interfaces — Consumes:** `/api/graph`, `lib.orreryLayout`, `app.openNote`. **Produces:** `renderGraph(container: HTMLElement, payload, {focusId?: string, onOpen: (id) => void}) -> void`.
 
-Behaviour: SVG; Shrestha at centre; tree edges solid, link edges dashed curves; node size by child count; `pinned` nodes ringed; stale nodes dimmed with a marker; inbox nodes in a separate cluster outside the outer ring; hover highlights a node's neighbours; click opens the note; wheel zoom and drag pan (viewBox); "Focus branch" filter shows only the current note's subtree plus its link neighbours.
+Behaviour: exactly `app-direction.md` §Graph and §Motion: SVG, reticle, centre mark with branch ticks, branch hues, node sizes by link degree, solid curved tree edges, dashed cross-link arcs, inbox diamonds on their arc, stale (30d/90d) styling, `pinned` nodes get a second hairline ring, hover 1-hop highlight with dimming, keyboard traversal and focus reticle, zoom 0.4–2.5× and pan (viewBox), HUD, ⌥-click branch filter, entrance choreography ≤ 560 ms, reduced-motion fallback. Also Split view (⌘2).
 
 - [ ] **Step 1:** Build `graph.js` and wire the route (Opus, same direction file).
 - [ ] **Step 2: Browser check:** seeded tree appears radially; a cross-link created in Task 9 shows dashed; click opens the note; focus filter works; zoom/pan smooth with 300 synthetic notes (create via a throwaway script into a temp vault, not the real one).

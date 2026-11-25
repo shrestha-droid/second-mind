@@ -12,7 +12,7 @@ The core idea: **disk is unlimited and free, context is small and costly.** Ever
 
 ## Goals
 
-1. Everything revolves around Shrestha: one tree rooted at `Shrestha`, e.g. `Shrestha › Branch HQ › Internal work`. The path is the address and the breadcrumb.
+1. Everything revolves around Shrestha: one tree rooted at `Shrestha`, e.g. `Shrestha › Work › Branch HQ › Internal work`. The path is the address and the breadcrumb.
 2. Its own Obsidian: a free, local app to browse, write and link notes, with a graph view showing the tree plus cross-links between branches. Shrestha wants this built, not borrowed from Obsidian.
 3. Context packs: pick a node, get ancestor summaries + the node + its most relevant links, cut at a token budget, with the estimated count shown. Zero model calls.
 4. Local AI tools connect directly via one MCP server; web chats via a Chrome extension.
@@ -57,7 +57,7 @@ The core idea: **disk is unlimited and free, context is small and costly.** Ever
 - Code: `~/second-mind` (git; may get a private GitHub remote later for the portfolio).
 - Vault: `~/second-mind/vault`, **its own git repo with no remote, ever**, and listed in the code repo's `.gitignore`. Git gives history and undo for notes.
 - Never in any git repo: `vault/**/_raw/` (raw transcripts), `.token`, `vault/.index.db`. Raw transcripts are local files only; backups of the vault are Time Machine's job.
-- Tree = folders: `vault/shrestha/branch-hq/internal-work/`. Each folder has `_index.md` (that level's summary, ≤100 words). `vault/inbox/` holds unfiled captures and anything AIs write back.
+- Tree = folders: `vault/shrestha/work/branch-hq/internal-work/`. Each folder has `_index.md` (that level's summary, ≤100 words). `vault/inbox/` holds unfiled captures and anything AIs write back.
 
 ### Note format
 ```yaml
@@ -65,7 +65,7 @@ The core idea: **disk is unlimited and free, context is small and costly.** Ever
 title: Internal work
 type: area          # person | project | area | task | chat | note
 summary: "≤100 words. What this is and where it stands."
-links: ["[[shrestha/jarvis]]"]
+links: ["[[shrestha/builds/jarvis]]"]
 pinned: false       # pinned notes always go into packs first
 source: {ai: gemini, url: "...", captured: 2026-11-25}   # captured chats only
 updated: 2026-11-25
@@ -73,11 +73,30 @@ updated: 2026-11-25
 body (markdown, may contain [[links]])
 ```
 
-### Seed tree (Shrestha confirms in phase 1)
-Root `shrestha`, then one folder per project found in `~`: `branch-hq` (with `internal-work`; `branch-pay` placement to confirm), `jarvis`, `conclave`, `gemma-hackathon`, `youtube`, `nest-5782`, plus `claude-setup`. Summaries start empty; Shrestha fills them (or asks for a one-off draft from each project's README).
+### Seed tree (confirmed by Shrestha)
+Shrestha at the centre, five life branches, projects under the branch they belong to:
+```
+shrestha
+├── work                      Work
+│   ├── branch-hq             Branch HQ
+│   │   └── internal-work     Internal work
+│   └── money                 Money (anything about money)
+├── college                   College
+├── social                    Social
+│   └── youtube               YouTube
+├── competitions              Competitions & hackathons
+│   ├── branch-pay            Branch Pay (PayPal AI Hackathon)
+│   └── gemma-hackathon       Gemma hackathon
+└── builds                    Builds
+    ├── jarvis                Jarvis
+    ├── conclave              Conclave
+    ├── claude-setup          Claude setup
+    └── nest-5782             OWASP Nest
+```
+Summaries start empty; Shrestha fills them (or asks for a one-off draft from each project's README).
 
 ### Claude setup as nodes (mounts, read-only)
-- `vault/mounts.json` lists each mount: tree home (`shrestha/claude-setup/skills/router`), real file (`~/.claude/skills/router/SKILL.md`), a sidecar `summary`, and `serves` (project nodes it is cross-linked to, e.g. `office`, `social`, `outreach-send`, `inbox` → `shrestha/branch-hq`).
+- `vault/mounts.json` lists each mount: tree home (`shrestha/builds/claude-setup/skills/router`), real file (`~/.claude/skills/router/SKILL.md`), a sidecar `summary`, and `serves` (project nodes it is cross-linked to, e.g. `office`, `social`, `outreach-send`, `inbox` → `shrestha/work/branch-hq`).
 - Real files are never modified and get no frontmatter. Tree home is under `claude-setup`; "serves" shows as a cross-link, not a duplicate.
 - Mounted: each skill's `SKILL.md` only, `~/.claude/CLAUDE.md`, `~/AGENTS.md`, and memory files under `~/.claude/projects/*/memory/*.md`.
 - Paths are resolved and must stay inside an allowlist (`~/.claude/`, `~/AGENTS.md`); symlinks out of it are refused.
