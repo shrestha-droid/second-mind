@@ -121,6 +121,9 @@ def main(out: Path) -> None:
         build_vault(vault)
         data = snapshot(vault)
     if out.exists():
+        # Only ever replace an earlier build, never a directory that holds other files.
+        if any(out.iterdir()) and not (out / "data.json").is_file():
+            raise SystemExit(f"refusing to overwrite {out}: not an earlier demo build")
         shutil.rmtree(out)
     shutil.copytree(ROOT / "app", out / "app", ignore=shutil.ignore_patterns("tests"))
     shutil.copy(ROOT / "demo" / "demo.js", out / "demo.js")

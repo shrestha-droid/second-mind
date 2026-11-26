@@ -878,7 +878,7 @@ const shell = $("#shell");
 function setPane(which, off) {
   shell.classList.toggle(`${which}-off`, off);
   (which === "side" ? $("#sidebar") : $("#inspector")).inert = off;
-  store.set(`sm-${which}-off`, off);
+  if (!phone.matches) store.set(`sm-${which}-off`, off); // phone drawers are not a saved layout
 }
 const togglePane = (which) => setPane(which, !shell.classList.contains(`${which}-off`));
 
@@ -1064,6 +1064,9 @@ $("#side-btn").addEventListener("click", () => { togglePane("side"); if (phone.m
 // On a phone the panes are drawers: a tap on the centre or a navigation closes them.
 const closeDrawers = () => { if (phone.matches) { setPane("side", true); setPane("insp", true); } };
 $("#centre").addEventListener("pointerdown", closeDrawers, true);
+phone.addEventListener("change", () => {
+  for (const w of ["side", "insp"]) setPane(w, phone.matches || store.get(`sm-${w}-off`, false));
+});
 $("#pack-pill").addEventListener("click", () => {
   if (shell.classList.contains("insp-off")) setPane("insp", false);
   selectTab("pack", true);
