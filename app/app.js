@@ -121,7 +121,7 @@ function drawGraph() {
 
 // Click keeps focus in the graph; Enter moves it into the note (once the note has loaded).
 async function openFromGraph(id, how) {
-  await openNote(id, S.view === "split" ? "split" : "note");
+  await openNote(id, "split");
   if (how?.keyboard && S.note?.id === id) $("#editor-body").focus();
 }
 
@@ -132,7 +132,7 @@ function parseHash() {
   try { h = decodeURIComponent(h); } catch {}
   if (h === "/graph") return { view: "graph", id: null };
   const m = /^\/(split|n)\/(.+)$/.exec(h);
-  return m ? { view: m[1] === "split" ? "split" : "note", id: m[2] } : { view: "note", id: "shrestha" };
+  return m ? { view: m[1] === "split" ? "split" : "note", id: m[2] } : h ? { view: "note", id: "shrestha" } : { view: "graph", id: null };
 }
 
 async function route() {
@@ -1071,6 +1071,8 @@ $("#pack-pill").addEventListener("click", () => {
   if (shell.classList.contains("insp-off")) setPane("insp", false);
   selectTab("pack", true);
 });
+{ const ap = $("#accent-pick"); ap.value = document.documentElement.dataset.accent || "cyan";
+  ap.addEventListener("change", () => { document.documentElement.dataset.accent = ap.value; try { localStorage.setItem("sm-accent", ap.value); } catch {} }); }
 $("#theme-btn").addEventListener("click", () => {
   const next = theme() === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
