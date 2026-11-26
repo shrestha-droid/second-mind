@@ -21,12 +21,14 @@
   <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13.25 9.6A5.5 5.5 0 0 1 6.4 2.75a5.5 5.5 0 1 0 6.85 6.85z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
   <symbol id="i-diamond" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" transform="rotate(45 8 8)" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/></symbol>
   <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
   <symbol id="i-read" viewBox="0 0 16 16"><path d="M1.75 8s2.25-4.25 6.25-4.25S14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
 </svg>
 
 <a class="skip" href="#editor-body">Skip to note</a>
 
 <header class="topbar">
+  <button type="button" id="side-btn" class="icon-btn" aria-label="Show notes" aria-controls="sidebar"><svg class="ic"><use href="#i-menu"/></svg></button>
   <nav class="crumbs" aria-label="Breadcrumb"><ol id="crumbs"></ol></nav>
   <div class="views" role="group" aria-label="View">
     <button type="button" data-view="graph" aria-pressed="false">Graph <kbd>⌘1</kbd></button>

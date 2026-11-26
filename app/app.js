@@ -147,6 +147,7 @@ async function route() {
 /** Open a note. Graph clicks (Task 10) can pass "split" to keep the graph in view. */
 export function openNote(id, view = S.view === "split" ? "split" : "note", replace = false) {
   const hash = hashFor(view, id);
+  closeDrawers();
   if (location.hash !== hash) history[replace ? "replaceState" : "pushState"](null, "", hash);
   return route();
 }
@@ -1058,6 +1059,11 @@ $("#new-btn").addEventListener("click", () => askCreate());
 
 for (const b of $$(".views button")) b.addEventListener("click", () => showView(b.dataset.view));
 $("#k-btn").addEventListener("click", openQs);
+const phone = matchMedia("(max-width: 760px)");
+$("#side-btn").addEventListener("click", () => { togglePane("side"); if (phone.matches) setPane("insp", true); });
+// On a phone the panes are drawers: a tap on the centre or a navigation closes them.
+const closeDrawers = () => { if (phone.matches) { setPane("side", true); setPane("insp", true); } };
+$("#centre").addEventListener("pointerdown", closeDrawers, true);
 $("#pack-pill").addEventListener("click", () => {
   if (shell.classList.contains("insp-off")) setPane("insp", false);
   selectTab("pack", true);
@@ -1110,7 +1116,7 @@ document.addEventListener("keydown", (e) => {
   else if (k === "s" && !e.shiftKey) { e.preventDefault(); save(); }
 });
 
-addEventListener("hashchange", route);
+addEventListener("hashchange", () => { closeDrawers(); route(); });
 addEventListener("focus", checkDisk);
 document.addEventListener("visibilitychange", checkDisk);
 addEventListener("beforeunload", (e) => {
@@ -1156,7 +1162,7 @@ splitHandle.addEventListener("keydown", (e) => {
 for (const which of ["side", "insp"]) {
   const w = store.get(`sm-${which}-w`, null);
   setWidth(which, typeof w === "number" ? w : which === "side" ? 240 : 300);
-  if (store.get(`sm-${which}-off`, false)) setPane(which, true);
+  if (store.get(`sm-${which}-off`, false) || phone.matches) setPane(which, true);
 }
 const split = store.get("sm-split", 45);
 setSplit(typeof split === "number" ? split : 45);
