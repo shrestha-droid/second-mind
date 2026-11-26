@@ -145,7 +145,8 @@ def trash_note(vault: Path, id: str) -> Path:
     return dest
 
 
-def snapshot(vault: Path, min_interval_s: int = 300, now: float | None = None) -> bool:
+def snapshot(vault: Path, min_interval_s: int = 300, now: float | None = None,
+             message: str = "autosave", author: str | None = None) -> bool:
     # ponytail: time-gated snapshot, per-save commits if history needs finer grain
     now = time.time() if now is None else now
     git_dir = vault / ".git"
@@ -164,7 +165,7 @@ def snapshot(vault: Path, min_interval_s: int = 300, now: float | None = None) -
     git("add", "-A")
     if git("diff", "--cached", "--quiet").returncode != 1:  # 1 = staged changes
         return False
-    if git("commit", "-q", "-m", "autosave").returncode != 0:
+    if git("commit", "-q", "-m", message, *(["--author", author] if author else [])).returncode != 0:
         return False
     stamp.write_text(str(now))
     return True
