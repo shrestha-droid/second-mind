@@ -226,6 +226,50 @@ class ServerTest(unittest.TestCase):
     def test_unknown_route_404(self):
         self.assertEqual(self.get("/api/nope")[0], 404)
 
+    def test_missing_note_404_hides_vault_path(self):
+        s, data = self.raw("GET", "/api/pack?id=shrestha/nope")
+        self.assertEqual(s, 404)
+        self.assertNotIn(str(self.vault).encode(), data)
+        self.assertNotIn(self._tmp.name.encode(), data)
+
+    def test_anti_framing_headers(self):
+        for path in ("/", "/api/tree", "/app/hello.js", "/api/nope"):
+            conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+            try:
+                conn.request("GET", path, headers={"Host": f"127.0.0.1:{self.port}"})
+                r = conn.getresponse()
+                r.read()
+                self.assertEqual(r.getheader("X-Frame-Options"), "DENY", path)
+                self.assertEqual(r.getheader("Content-Security-Policy"), "frame-ancestors 'none'", path)
+            finally:
+                conn.close()
+
+    def test_bad_files_do_not_break_reads(self):
+        (self.vault / "shrestha/bad.md").write_bytes(b"\xff\xfe\x00 not utf-8 [[shrestha]]")
+        (self.vault / "shrestha/num.md").write_text("---\ntitle: [42]\n---\nsee [[shrestha/bad]]\n")  # a non-string title
+        with mock.patch("sys.stderr") as err:
+            s, t = self.get("/api/tree")
+            self.assertEqual(s, 200)
+            kids = {c["id"]: c["title"] for c in t["root"]["children"]}
+            self.assertEqual(kids["shrestha/num"], "[42]")
+            s, g = self.get("/api/graph")
+            self.assertEqual(s, 200)
+            self.assertEqual({n["id"]: n["title"] for n in g["nodes"]}["shrestha/num"], "[42]")
+            for id in ("shrestha", "shrestha/num"):
+                self.assertEqual(self.get(f"/api/note?id={id}")[0], 200, id)
+            self.assertEqual(self.get("/api/pack?id=shrestha/num")[0], 200)
+        self.assertIn("shrestha/bad.md", "".join(str(c) for c in err.mock_calls))
+
+    def test_search_snippet_never_shows_secret(self):
+        n = self.create("Keys")
+        self.assertEqual(self.put(n, f"my key is {LEAK} ok")[0], 200)
+        for q in ("sk", "key", "my key"):
+            s, out = self.get(f"/api/search?q={q.replace(' ', '+')}")
+            self.assertEqual(s, 200)
+            blob = json.dumps(out)
+            self.assertNotIn("a" * 24, blob, q)
+        self.assertIn("shrestha/keys", [r["id"] for r in self.get("/api/search?q=key")[1]])
+
     # ---- static ----
 
     def test_static_traversal_404(self):
@@ -254,6 +298,14 @@ class MainHelpersTest(unittest.TestCase):
             self.assertEqual(server._load_token(p), t)
             p.write_text("")
             self.assertTrue(server._load_token(p))  # empty file is regenerated, never used as a token
+
+    def test_existing_token_file_rechmodded_600(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / ".token"
+            p.write_text("existing-token")
+            p.chmod(0o644)
+            self.assertEqual(server._load_token(p), "existing-token")
+            self.assertEqual(p.stat().st_mode & 0o777, 0o600)
 
     def test_empty_token_refused(self):
         with self.assertRaises(ValueError):

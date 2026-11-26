@@ -18,7 +18,7 @@ from sm.ops import PartialMove, create_note, move_note, snapshot, trash_note
 from sm.pack import build_pack
 from sm.redact import redact
 from sm.seed import init_repo, seed
-from sm.vault import Conflict, all_ids, note_path, read_note, tree, valid_id, write_note
+from sm.vault import Conflict, all_ids, note_path, read_note, tree, try_read, valid_id, write_note
 
 MAX_BODY = 1_000_000  # 1 MB
 META_KEY_RE = re.compile(r"[A-Za-z0-9_-]+")
@@ -31,7 +31,8 @@ class HttpError(Exception):
 
 
 def _title(vault: Path, id: str) -> str:
-    return str(read_note(vault, id).meta.get("title") or id.rsplit("/", 1)[-1])
+    n = try_read(vault, id)
+    return str((n and n.meta.get("title")) or id.rsplit("/", 1)[-1])
 
 
 def note_json(vault: Path, n) -> dict:
@@ -62,6 +63,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")  # the page carries the write token
+        self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
         self.end_headers()
         self.wfile.write(body)
 
@@ -123,8 +126,8 @@ class Handler(BaseHTTPRequestHandler):
             route()
         except HttpError as e:
             self._json(e.status, e.payload)
-        except FileNotFoundError as e:
-            self._json(404, {"error": f"not found: {e}"})
+        except FileNotFoundError:  # str(e) holds the absolute vault path
+            self._json(404, {"error": "not found"})
         except FileExistsError as e:
             self._json(409, {"error": f"already exists: {e}"})
         except ValueError as e:
@@ -283,7 +286,9 @@ def _load_token(path: Path) -> str:
         token = path.read_text().strip()
     except FileNotFoundError:
         token = ""
-    if not token:
+    if token:
+        os.chmod(path, 0o600)  # an older or hand-made token file may be world-readable
+    else:
         token = secrets.token_urlsafe(32)
         path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

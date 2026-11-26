@@ -4,7 +4,7 @@ from pathlib import Path
 
 from sm.links import link_index
 from sm.redact import estimate_tokens, redact
-from sm.vault import all_ids, is_stale, read_note
+from sm.vault import all_ids, is_stale, read_note, try_read
 
 
 def _text(v, fallback=""):
@@ -32,10 +32,8 @@ def build_pack(vault: Path, id: str, budget: int = 1500, include=(), exclude=(),
 
     def meta(i: str) -> dict:
         if i not in metas:
-            try:
-                metas[i] = read_note(vault, i).meta
-            except FileNotFoundError:
-                metas[i] = {}
+            n = try_read(vault, i)
+            metas[i] = n.meta if n else {}
         return metas[i]
 
     def title(i: str) -> str:

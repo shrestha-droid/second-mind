@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import sys
 import tempfile
 from dataclasses import dataclass
 from datetime import date
@@ -121,6 +122,19 @@ def read_note(vault: Path, id: str) -> Note:
     return Note(id, meta, body, mtime_ns)
 
 
+def try_read(vault: Path, id: str) -> Note | None:
+    """read_note for listings: None for a missing note, and None plus one stderr line
+    for an unreadable or non-UTF-8 one, so a single bad file never breaks the app."""
+    try:
+        return read_note(vault, id)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as e:
+        rel = f"{id}/_index.md" if (vault / id).is_dir() else f"{id}.md"
+        print(f"skipping unreadable note {rel}: {e!r}", file=sys.stderr)
+        return None
+
+
 def write_note(vault: Path, id: str, meta: dict, body: str,
                base_mtime_ns: int | None) -> Note:
     path = note_path(vault, id)
@@ -178,14 +192,12 @@ def tree(vault: Path, root: str = "shrestha", today: date | None = None) -> dict
             kids.setdefault(i.rsplit("/", 1)[0], []).append(i)
 
     def node(id: str) -> dict:
-        try:
-            meta = read_note(vault, id).meta
-        except FileNotFoundError:
-            meta = {}
+        n = try_read(vault, id)
+        meta = n.meta if n else {}
         children = sorted(
             (node(c) for c in kids.get(id, [])),
             key=lambda n: (not (vault / n["id"]).is_dir(), n["title"].lower()))
-        return {"id": id, "title": meta.get("title") or id.rsplit("/", 1)[-1],
+        return {"id": id, "title": str(meta.get("title") or id.rsplit("/", 1)[-1]),
                 "type": meta.get("type"), "stale": is_stale(meta, today),
                 "children": children}
 

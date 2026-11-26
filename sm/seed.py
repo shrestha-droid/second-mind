@@ -29,7 +29,11 @@ IGNORE = ["_raw/", ".index.db", ".index.db-*", ".trash/"]
 
 
 def seed(vault: Path) -> list[str]:
-    """Create missing seed notes as folder notes; never overwrite. Returns ids created."""
+    """Seed a fresh vault with folder notes; never overwrite. Returns ids created.
+    Once shrestha/_index.md exists the vault is the user's: trashed or renamed seed
+    notes must stay gone, so nothing is seeded again."""
+    if (vault / "shrestha" / "_index.md").exists():
+        return []
     created = []
     for id, title, type in SEED:
         if (vault / id / "_index.md").exists() or (vault / f"{id}.md").exists():

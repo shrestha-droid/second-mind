@@ -101,6 +101,19 @@ class IndexTest(unittest.TestCase):
         titles = {r["id"]: r["title"] for r in idx.search("findme")}
         self.assertEqual(titles, {"shrestha/plain": "plain", "shrestha/ok": "Ok"})
 
+    def test_secrets_redacted_before_indexing(self):
+        key = "sk-" + "b" * 30
+        make_vault(self.tmp, {"shrestha/k.md": note(f"T {key}", f"my key is {key} ok", summary=f"S {key}")})
+        idx = Index(self.tmp)
+        idx.rebuild()
+        self.assertEqual(self.ids(idx, key), [])
+        hits = idx.search("key")
+        self.assertEqual([r["id"] for r in hits], ["shrestha/k"])
+        self.assertNotIn("b" * 30, repr(idx.search("sk")) + repr(hits))
+        idx.update("shrestha/k")
+        self.assertNotIn("b" * 30, repr(idx.search("key")))
+        self.assertNotIn(b"b" * 30, idx.db.read_bytes())
+
     def test_limit_and_rebuild_replaces(self):
         make_vault(self.tmp, {f"shrestha/n{i}.md": note(f"N{i}", "common") for i in range(5)})
         idx = Index(self.tmp)

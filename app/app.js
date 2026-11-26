@@ -708,17 +708,23 @@ async function askRename(id) {
       const t = v.title.trim();
       if (!t) return "Give it a title.";
       if (t === old) return;
+      let nid = id, err, done = false;
       try {
-        let nid = id;
         if (!ROOTS.has(id) && slugify(t) !== leaf(id)) {
-          nid = `${id.slice(0, id.lastIndexOf("/") + 1)}${slugify(t)}`;
-          const r = await api("POST", "/api/move", { id, new_id: nid });
+          const to = `${id.slice(0, id.lastIndexOf("/") + 1)}${slugify(t)}`;
+          const r = await api("POST", "/api/move", { id, new_id: to });
+          nid = to;
           if (r.partial) toast(`Renamed, but ${r.unrewritten.length} note(s) still link the old id.`);
         }
         const n = await api("GET", `/api/note?id=${encodeURIComponent(nid)}`);
         await api("PUT", "/api/note", { id: nid, meta: { ...n.meta, title: t }, body: n.body, base_mtime_ns: n.mtime_ns });
-        await afterMove(id, nid);
-      } catch (e) { return errText(e); }
+        done = true;
+      } catch (e) { err = errText(e); }
+      finally {
+        // a move that went through must reach the open note even if the title PUT then failed
+        if (done || nid !== id) try { await afterMove(id, nid); } catch (e) { err ??= errText(e); }
+      }
+      return err;
     },
   });
 }
@@ -744,6 +750,7 @@ async function askMove(id) {
 }
 
 async function askTrash(id) {
+  if (!(await flushIfOpen(id))) return; // unsaved text of the open note (or one inside it) must reach disk first
   await ask({
     title: `Move “${titleOf(id)}” to trash?`,
     msg: "It goes to vault/.trash with any notes inside it. Links to it will show as missing.",
@@ -833,19 +840,22 @@ function togglePack(id, on) {
 let copiedT = 0;
 async function copyPack() {
   if (!S.pack) return;
+  let ok = true;
   try {
     await navigator.clipboard.writeText(S.pack.text);
   } catch {
-    const t = h("textarea", { style: "position:fixed;opacity:0" });
+    const back = document.activeElement, t = h("textarea", { style: "position:fixed;opacity:0" });
     t.value = S.pack.text;
     document.body.append(t);
     t.select();
-    document.execCommand("copy");
+    try { ok = document.execCommand("copy"); } catch { ok = false; }
     t.remove();
+    back?.focus?.();
   }
   const btn = $("#copy-pack");
-  $("#copy-label").textContent = "Copied";
-  btn.classList.add("copied");
+  $("#copy-label").textContent = ok ? "Copied" : "Copy failed";
+  btn.classList.toggle("copied", ok);
+  toast(ok ? "Pack copied" : "Copy failed. The clipboard is blocked here."); // the toast is the polite live region
   clearTimeout(copiedT);
   copiedT = setTimeout(() => { $("#copy-label").textContent = "Copy pack"; btn.classList.remove("copied"); }, 1400);
 }
@@ -977,7 +987,8 @@ function pickQs(i, e) {
   if (!n) return;
   qs.close();
   if (e.shiftKey) addToPack(n.id);
-  else openNote(n.id, e.metaKey || e.ctrlKey ? "split" : S.view === "split" ? "split" : "note");
+  else openNote(n.id, e.metaKey || e.ctrlKey ? "split" : S.view === "split" ? "split" : "note")
+    .then(() => { if (S.note?.id === n.id) $("#editor-body").focus(); }); // like Enter in the graph
 }
 
 qi.addEventListener("input", updateQs);
@@ -1089,7 +1100,11 @@ document.addEventListener("keydown", (e) => {
   if (!mod) return;
   if (k === "k" && !e.shiftKey) { e.preventDefault(); openQs(); }
   else if (k === "e" && !e.shiftKey) { e.preventDefault(); setReading(!S.reading); }
-  else if (!e.shiftKey && ["1", "2", "3"].includes(e.key)) { e.preventDefault(); showView(["graph", "split", "note"][Number(e.key) - 1]); }
+  else if (!e.shiftKey && ["1", "2", "3"].includes(e.key)) {
+    e.preventDefault();
+    showView(["graph", "split", "note"][Number(e.key) - 1]);
+    if (e.key === "1") $("#graph-pane canvas")?.focus(); // otherwise focus sits on BODY, 40 tabs away
+  }
   else if (e.code === "Backslash") { e.preventDefault(); togglePane(e.shiftKey ? "insp" : "side"); }
   else if (k === "c" && e.shiftKey) { e.preventDefault(); copyPack(); }
   else if (k === "s" && !e.shiftKey) { e.preventDefault(); save(); }

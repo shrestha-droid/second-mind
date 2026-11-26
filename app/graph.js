@@ -466,6 +466,7 @@ function mount(container) {
     const hl = easeOutCubic(st.hl), HL = H ?? (hl > 0 ? st.hLast : null);
     const near = HL ? st.adj.get(HL) ?? new Set() : new Set();
     const dim = lerp(1, 0.25, hl);
+    const cdim = lerp(1, 0.55, hl); // context (edges, pulses, labels) dims less, so off-focus branches stay legible
 
     const m = Math.min(w, h), hk = rmo ? 1 : easeOutExpo(clamp01(el / 250));
     const ef = rmo ? 1 : clamp01((el - 600) / 400); // edges, tags and readouts
@@ -511,7 +512,8 @@ function mount(container) {
       n.t = n.depth;
       const lit = n.id === HL || near.has(n.id);
       n.da = (0.22 + 0.78 * n.t ** 1.4) * ak;
-      n.a = n.da * (HL && !lit ? dim : 1);
+      // non-neighbours dim, but never below an absolute 0.18, so the far side of the constellation still reads
+      n.a = HL && !lit ? Math.max(n.da * dim, 0.18 * ak) : n.da;
       n.ek = ak;
       n.r = Math.max(1.5, nodeRadius(n.deg, n.tier) * n.s) * (n.id === HL ? 1 + 0.25 * hl : 1);
       list.push(n);
@@ -536,7 +538,7 @@ function mount(container) {
         const { a, b } = e;
         if (e.link || !a.ek || !b.ek) continue;
         const hot = HL && (a.id === HL || b.id === HL);
-        ctx.globalAlpha = Math.min(0.7, 1.5 * ef * (hot ? lerp(0.22, 0.28, hl) : 0.22 * (HL ? dim : 1)) * (a.da + b.da) / 2);
+        ctx.globalAlpha = Math.min(0.7, 1.5 * ef * (hot ? lerp(0.22, 0.28, hl) : 0.22 * (HL ? cdim : 1)) * (a.da + b.da) / 2);
         const g = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
         g.addColorStop(0, fog(a.hue, a.t));
         g.addColorStop(1, fog(b.hue, b.t));
@@ -580,7 +582,7 @@ function mount(container) {
           const k = Math.floor(u), f = u - k, a = p.path[k], b = p.path[k + 1];
           if (!a.ek || !b.ek) return false;
           const lit = !HL || a.id === HL || b.id === HL || near.has(b.id);
-          const alpha = (i ? 0.7 * (1 - (i - 1) / 5) : 0.8) * lerp(a.da, b.da, f) * (lit ? 1 : dim);
+          const alpha = (i ? 0.7 * (1 - (i - 1) / 5) : 0.8) * lerp(a.da, b.da, f) * (lit ? 1 : cdim);
           stamp(ctx, b.hue, lerp(a.sx, b.sx, f), lerp(a.sy, b.sy, f), 4.5 * lerp(a.s, b.s, f) * (i ? 0.8 : 1.3), alpha);
         }
         return true;
@@ -681,7 +683,7 @@ function mount(container) {
     placed.sort((a, b) => a[0].t - b[0].t);
     for (const [n, g] of placed) {
       const lit = n.id === HL && hl > 0;
-      const k = HL && !(lit || near.has(n.id)) ? dim : 1;
+      const k = HL && !(lit || near.has(n.id)) ? cdim : 1;
       if (g) drawTag(ctx, g, ell(n.title.toUpperCase()), compact ? "" : `${n.notes} NOTES`, n.stale && st.stale ? n.hueStale : n.hue, Math.max(ef * n.ek * k, lit ? 1 : 0), st.fonts);
       else label(n, lit, k);
     }
@@ -690,7 +692,7 @@ function mount(container) {
       ctx.textBaseline = "alphabetic";
       ctx.font = `500 11px ${st.fonts.mono}`;
       ctx.letterSpacing = "1.54px";
-      const y = root.sy + 29 * root.s + 15, a = root.ek * (HL && HL !== ROOT && !near.has(ROOT) ? dim : 1);
+      const y = root.sy + 29 * root.s + 15, a = root.ek * (HL && HL !== ROOT && !near.has(ROOT) ? cdim : 1);
       halo(ctx, root.title.toUpperCase(), root.sx, y, a);
       ctx.globalAlpha = a;
       ctx.fillStyle = RETICLE;

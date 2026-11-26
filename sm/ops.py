@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from sm.links import CODE_RE, LINK_RE, resolve
-from sm.vault import Conflict, Note, all_ids, read_note, slugify, valid_id, write_note
+from sm.vault import Conflict, Note, all_ids, read_note, slugify, try_read, valid_id, write_note
 
 ROOTS = ("shrestha", "inbox")
 
@@ -107,8 +107,8 @@ def move_note(vault: Path, id: str, new_id: str) -> int:
     mapping = {i: new_id + i[len(id):] for i in ids if i == id or i.startswith(id + "/")}
     changes = []
     for i in sorted(ids):
-        note = read_note(vault, i)
-        new = _rewrite(note, ids, mapping)
+        note = try_read(vault, i)  # an unreadable note cannot be rewritten; it still moves
+        new = note and _rewrite(note, ids, mapping)
         if new:
             changes.append((mapping.get(i, i), new, note.mtime_ns))
 

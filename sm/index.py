@@ -3,6 +3,7 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from sm.redact import redact
 from sm.vault import all_ids, read_note
 
 SCHEMA = ("CREATE VIRTUAL TABLE IF NOT EXISTS notes USING fts5("
@@ -29,7 +30,8 @@ class Index:
     def _row(self, id: str) -> tuple:
         n = read_note(self.vault, id)
         title = n.meta.get("title") or id.rsplit("/", 1)[-1]
-        return id, str(title), str(n.meta.get("summary") or ""), n.body
+        # redact before FTS: snippet() puts <mark> inside a secret, so redacting after misses it
+        return id, redact(str(title)), redact(str(n.meta.get("summary") or "")), redact(n.body)
 
     @staticmethod
     def _delete(conn: sqlite3.Connection, id: str, subtree: bool) -> None:

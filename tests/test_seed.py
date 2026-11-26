@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from sm.ops import move_note, trash_note
 from sm.seed import SEED, init_repo, seed
 from sm.vault import all_ids, read_note, write_note
 
@@ -29,6 +30,15 @@ class SeedTest(unittest.TestCase):
         write_note(self.vault, "shrestha/work", {**n.meta, "summary": "mine"}, "body", n.mtime_ns)
         self.assertEqual(seed(self.vault), [])
         self.assertEqual(read_note(self.vault, "shrestha/work").meta["summary"], "mine")
+
+    def test_seed_never_resurrects_trashed_or_moved(self):
+        seed(self.vault)
+        trash_note(self.vault, "shrestha/social/youtube")
+        move_note(self.vault, "shrestha/work/money", "shrestha/work/finance")
+        self.assertEqual(seed(self.vault), [])
+        ids = all_ids(self.vault)
+        self.assertNotIn("shrestha/social/youtube", ids)
+        self.assertNotIn("shrestha/work/money", ids)
 
     def test_seed_skips_existing_leaf(self):
         (self.vault / "shrestha").mkdir()

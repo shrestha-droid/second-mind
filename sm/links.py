@@ -3,7 +3,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from sm.vault import all_ids, is_stale, read_note, slugify
+from sm.vault import all_ids, is_stale, slugify, try_read
 
 CODE_RE = re.compile(r"```.*?(```|\Z)|`[^`\n]*`", re.S)
 LINK_RE = re.compile(r"\[\[([^\[\]\n]+)\]\]")
@@ -40,7 +40,9 @@ def link_index(vault: Path) -> dict:
     back = {i: [] for i in ids}
     missing: dict[str, list[str]] = {}
     for i in ids:
-        note = read_note(vault, i)
+        note = try_read(vault, i)
+        if note is None:
+            continue
         for t in extract_links(note.meta, note.body):
             r = resolve(t, idset)
             if r is None:
@@ -58,14 +60,14 @@ def graph_payload(vault: Path, today: date | None = None) -> dict:
 
     def add(id: str, meta: dict):
         parent = id.rsplit("/", 1)[0] if id.startswith("shrestha/") else None
-        nodes[id] = {"id": id, "title": meta.get("title") or id.rsplit("/", 1)[-1],
+        nodes[id] = {"id": id, "title": str(meta.get("title") or id.rsplit("/", 1)[-1]),
                      "type": meta.get("type"), "stale": is_stale(meta, today),
                      "parent": parent, "pinned": meta.get("pinned") is True,
                      "updated": u if isinstance(u := meta.get("updated"), str) else None}
 
     for i in ids:
-        if i != "inbox":
-            add(i, read_note(vault, i).meta)
+        if i != "inbox" and (n := try_read(vault, i)):
+            add(i, n.meta)
     # folders with notes but no _index.md still need a node, so tree edges stay connected
     for i in list(nodes):
         while i.startswith("shrestha/"):
