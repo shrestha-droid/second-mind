@@ -4,7 +4,9 @@
     {
       "name": "second-mind",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["server.py"],
+      "runtimeArgs": [
+        "server.py"
+      ],
       "port": 7337
     },
     {
@@ -17,6 +19,34 @@
         "server.py"
       ],
       "port": 7338
+    },
+    {
+      "name": "second-mind-demo",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "7339",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "/private/tmp/claude-502/-Users-ShresthaPandey-second-mind/1b71ca91-419d-494f-84d4-241439a62b55/scratchpad/pages"
+      ],
+      "port": 7339
+    },
+    {
+      "name": "portfolio",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "7340",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "/Users/ShresthaPandey/sp-sys-portfolio"
+      ],
+      "port": 7340
     }
   ]
 }

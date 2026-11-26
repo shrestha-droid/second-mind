@@ -9,7 +9,7 @@
 <link rel="preload" href="/app/vendor/fonts/IBMPlexSans-Regular-Latin1.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/app/vendor/fonts/SourceSerif4-Regular.ttf.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/app/app.css">
-<script>try { const t = localStorage.getItem("sm-theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch {}</script>
+<script>try { const t = localStorage.getItem("sm-theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; document.documentElement.dataset.accent = localStorage.getItem("sm-accent") || "cyan"; } catch {}</script>
 </head>
 <body data-view="note">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -37,6 +37,7 @@
   </div>
   <div class="tools">
     <button type="button" id="pack-pill" class="pill" aria-label="Context pack size. Open the pack tab"><span id="pill-n">≈0</span><span class="pill-sep">/</span><span id="pill-b">1,500</span></button>
+    <select id="accent-pick" class="accent-pick" aria-label="Colour aesthetic"><option value="cyan">Cyan</option><option value="crimson">Crimson</option><option value="violet">Violet</option><option value="amber">Amber</option><option value="emerald">Emerald</option></select>
     <button type="button" id="theme-btn" class="icon-btn" aria-label="Switch theme"><svg class="ic"><use href="#i-moon"/></svg></button>
     <button type="button" id="k-btn" class="kbtn" aria-label="Go to note (⌘K)"><svg class="ic"><use href="#i-search"/></svg><kbd>⌘K</kbd></button>
   </div>

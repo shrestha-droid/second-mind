@@ -7,9 +7,9 @@ import {
   drawBack, drawCore, drawBranchDeco, tagBox, drawTag, halo, drawLock, calloutBox, drawCallout, drawShock, drawScan, drawData,
 } from "./graph-draw.js";
 
-const ROOT = "shrestha";
-const DAY = 864e5;
-const ORDER = ["work", "college", "social", "competitions", "builds"]; // seed bearings -54°, 18°, 90°, 162°, 234° (as lib.js)
+export const ROOT = "shrestha";
+export const DAY = 864e5;
+export const ORDER = ["work", "college", "social", "competitions", "builds"]; // seed bearings -54°, 18°, 90°, 162°, 234° (as lib.js)
 
 // ---------- pure helpers (no DOM, tested in app/tests/graph.test.mjs) ----------
 
@@ -88,7 +88,7 @@ export function step(nav, id, key) {
   return sib[(sib.indexOf(id) + d + sib.length) % sib.length];
 }
 
-const rad = (deg) => (deg * Math.PI) / 180;
+export const rad = (deg) => (deg * Math.PI) / 180;
 // Azimuth turns in the screen plane (x right, y down) like the old bearings; elevation leans toward or away from the camera (z).
 const dirOf = (az, el) => [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)];
 
@@ -164,6 +164,62 @@ export function holoLayout(payload) {
 }
 
 /**
+ * Galaxy disc, y up, disc in the xz plane. Root at the origin; each branch at r=110 on its old bearing; its projects
+ * along a log-spiral arm at r 150-260, lifted 14-30 in y; deeper notes in a golden-angle cluster above their parent;
+ * inbox on a ring at r=300 tilted 0.35 rad about x. Tiers as holoLayout. Orphans are left out.
+ */
+export function galaxyLayout(payload) {
+  const ids = new Set(payload.nodes.map((n) => n.id));
+  const pos = new Map(), kids = new Map();
+  for (const id of [...ids].sort()) {
+    if (id === ROOT || id.startsWith("inbox/") || !id.startsWith(`${ROOT}/`)) continue;
+    const p = id.slice(0, id.lastIndexOf("/"));
+    (kids.get(p) ?? kids.set(p, []).get(p)).push(id);
+  }
+  if (!ids.has(ROOT)) return pos;
+  pos.set(ROOT, { x: 0, y: 0, z: 0, tier: 0 });
+
+  const slots = [...ORDER.map((_, k) => -54 + 72 * k), ...ORDER.map((_, k) => -18 + 72 * k)];
+  const branches = kids.get(ROOT) || [], slotOf = new Map(), taken = new Set();
+  for (const id of branches) {
+    const k = ORDER.indexOf(id.split("/")[1]);
+    if (k >= 0) { slotOf.set(id, k); taken.add(k); }
+  }
+  for (const id of branches) {
+    if (slotOf.has(id)) continue;
+    const k = slots.findIndex((_, i) => !taken.has(i)); // ponytail: ten slots, an eleventh branch gets a seeded bearing
+    if (k >= 0) taken.add(k);
+    slotOf.set(id, k);
+  }
+  const cluster = (parent) => {
+    const p = pos.get(parent);
+    (kids.get(parent) || []).forEach((id, i) => {
+      const rnd = seeded(id), r = 14 + 6 * Math.sqrt(i), a = i * 2.39996 + rnd() * 0.3;
+      pos.set(id, { x: p.x + r * Math.cos(a), y: p.y + 16 + rnd() * 14, z: p.z + r * Math.sin(a), tier: 3 });
+      cluster(id);
+    });
+  };
+  for (const id of branches) {
+    const k = slotOf.get(id), th0 = rad(k >= 0 ? slots[k] : seeded(id)() * 360);
+    pos.set(id, { x: 110 * Math.cos(th0), y: 0, z: 110 * Math.sin(th0), tier: 1 });
+    const list = kids.get(id) || [];
+    list.forEach((pid, i) => {
+      const rnd = seeded(pid), r = 150 + 110 * ((i + 0.5) / list.length) + (rnd() - 0.5) * 16;
+      const th = th0 + 0.45 * Math.log(r / 110) + (rnd() - 0.5) * 0.12; // the arm twists < 27°, short of the 36° midline
+      pos.set(pid, { x: r * Math.cos(th), y: 14 + rnd() * 16, z: r * Math.sin(th), tier: 2 });
+      cluster(pid);
+    });
+  }
+  const inbox = [...ids].filter((id) => id.startsWith("inbox/")).sort();
+  const tilt = 0.35;
+  inbox.forEach((id, i) => {
+    const a = (i / inbox.length) * TAU;
+    pos.set(id, { x: 300 * Math.cos(a), y: 300 * Math.sin(a) * Math.sin(tilt), z: 300 * Math.sin(a) * Math.cos(tilt), tier: 4 });
+  });
+  return pos;
+}
+
+/**
  * Perspective projection: yaw about y, then pitch about x, camera CAM_D in front of the origin looking down +z.
  * cam {yaw, pitch, zoom, fit, cx, cy}. depth 0 is the back of the sphere, 1 the front.
  */
@@ -173,19 +229,19 @@ export const project = (p, cam) => projector(cam)(p.x, p.y, p.z);
 
 const easeOutExpo = (t) => (t >= 1 ? 1 : 1 - 2 ** (-10 * t));
 const bez = (a, b, t) => 3 * (1 - t) * (1 - t) * t * a + 3 * (1 - t) * t * t * b + t * t * t;
-function cubicBezier(x1, y1, x2, y2) {
+export function cubicBezier(x1, y1, x2, y2) {
   return (x) => {
     let lo = 0, hi = 1;
     for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (bez(x1, x2, m) < x) lo = m; else hi = m; }
     return bez(y1, y2, (lo + hi) / 2);
   };
 }
-const easeFly = cubicBezier(0.22, 1, 0.36, 1);
-const wrapPi = (a) => a - TAU * Math.round(a / TAU);
+export const easeFly = cubicBezier(0.22, 1, 0.36, 1);
+export const wrapPi = (a) => a - TAU * Math.round(a / TAU);
 
-const ell = (s, n = 18) => (s.length > n ? s.slice(0, n).trimEnd() + "…" : s);
+export const ell = (s, n = 18) => (s.length > n ? s.slice(0, n).trimEnd() + "…" : s);
 const fmtDeg = (r) => { const d = (r * 180) / Math.PI; return `${d < 0 ? "−" : ""}${Math.abs(d).toFixed(1)}°`; };
-const branchOf = (id) => (id.startsWith("inbox/") ? "inbox" : id === ROOT ? null : id.split("/")[1]);
+export const branchOf = (id) => (id.startsWith("inbox/") ? "inbox" : id === ROOT ? null : id.split("/")[1]);
 
 // ---------- renderer ----------
 
@@ -222,12 +278,33 @@ export function placeLabels(cands, { cap, reserved = [], avoid = null, pad = 4 }
   return out;
 }
 
-export function renderGraph(container, payload, { focusId, onOpen, onPack } = {}) {
+function hasGL() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return !!gl;
+  } catch { return false; }
+}
+let glMount; // Promise of graph-gl.js's mount, or of null when WebGL or the import fails
+
+export function renderGraph(container, payload, opts = {}) {
   let st = states.get(container);
-  if (!st) states.set(container, (st = mount(container)));
-  st.onOpen = onOpen;
-  st.onPack = onPack;
-  st.setData(payload, focusId);
+  if (!st) { // first call: load the WebGL view once, keep the latest args meanwhile, fall back to Canvas 2D
+    const box = { payload, opts };
+    states.set(container, { box });
+    glMount ??= hasGL() ? import("./graph-gl.js").then((m) => m.mount, (e) => (console.warn("WebGL graph", e), null)) : Promise.resolve(null);
+    glMount.then((m) => {
+      let real = null;
+      try { real = m?.(container) ?? null; } catch (e) { console.warn("WebGL graph", e); }
+      states.set(container, real ?? mount(container));
+      renderGraph(container, box.payload, box.opts);
+    });
+    return;
+  }
+  if (st.box) { st.box.payload = payload; st.box.opts = opts; return; }
+  st.onOpen = opts.onOpen;
+  st.onPack = opts.onPack;
+  st.setData(payload, opts.focusId);
 }
 
 

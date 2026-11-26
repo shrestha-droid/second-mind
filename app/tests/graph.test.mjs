@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clampZoom, nodeRadius, degrees, staleLevel, neighbours, visibleIds, topByDegree, buildNav, step, holoLayout, project, labelCap, labelPriority, placeLabels } from "../graph.js";
+import { clampZoom, nodeRadius, degrees, staleLevel, neighbours, visibleIds, topByDegree, buildNav, step, holoLayout, galaxyLayout, project, labelCap, labelPriority, placeLabels } from "../graph.js";
 import { orreryLayout } from "../lib.js";
 
 const N = (id, extra = {}) => ({ id, title: id, ...extra });
@@ -153,6 +153,49 @@ test("holoLayout lays out 300 nodes in under 20ms", () => {
   holoLayout(big); // warm the JIT
   const t0 = performance.now();
   holoLayout(big);
+  assert.ok(performance.now() - t0 < 20);
+});
+
+test("galaxyLayout is deterministic, finite, and puts the centre at the origin", () => {
+  const big = synthetic();
+  const a = galaxyLayout(big), b = galaxyLayout(structuredClone(big));
+  assert.equal(a.size, big.nodes.length);
+  assert.deepEqual([...a], [...b]);
+  for (const p of a.values()) for (const v of [p.x, p.y, p.z]) assert.ok(Number.isFinite(v));
+  assert.deepEqual(a.get("shrestha"), { x: 0, y: 0, z: 0, tier: 0 });
+});
+
+test("galaxyLayout keeps each project nearer its own branch than any other", () => {
+  for (const pl of [payload, synthetic()]) {
+    const pos = galaxyLayout(pl);
+    const branches = [...pos].filter(([, p]) => p.tier === 1);
+    const d = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
+    for (const [id, p] of pos) {
+      if (p.tier !== 2) continue;
+      const own = id.split("/").slice(0, 2).join("/"), mine = d(p, pos.get(own));
+      for (const [bid, bp] of branches) if (bid !== own) assert.ok(mine < d(p, bp), `${id} strays toward ${bid}`);
+    }
+  }
+});
+
+test("galaxyLayout is a disc, not a sphere, with inbox on the r=300 ring", () => {
+  const pos = [...galaxyLayout(synthetic())];
+  const disc = pos.filter(([, p]) => p.tier < 4).map(([, p]) => p);
+  const ext = (k) => Math.max(...disc.map((p) => p[k])) - Math.min(...disc.map((p) => p[k]));
+  assert.ok(ext("y") < 0.35 * Math.max(ext("x"), ext("z")), `y ${ext("y")} x ${ext("x")} z ${ext("z")}`);
+  const inbox = pos.filter(([id]) => id.startsWith("inbox/"));
+  assert.ok(inbox.length >= 20);
+  for (const [, p] of inbox) {
+    assert.ok(Math.abs(Math.hypot(p.x, p.y, p.z) - 300) <= 1);
+    assert.equal(p.tier, 4);
+  }
+});
+
+test("galaxyLayout lays out 300 nodes in under 20ms", () => {
+  const big = synthetic();
+  galaxyLayout(big);
+  const t0 = performance.now();
+  galaxyLayout(big);
   assert.ok(performance.now() - t0 < 20);
 });
 

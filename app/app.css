@@ -199,26 +199,26 @@ mark { background: var(--mark); color: var(--text); border-radius: 2px; padding:
 .centre.dragging { cursor: col-resize; user-select: none; }
 
 /* ---------- graph: 3D holo tank (app-direction.md §Graph). The tank is dark in both themes. ---------- */
-.graph-pane { background: radial-gradient(ellipse at 50% 45%, #0A1324 0%, #04070D 100%); }
+.graph-pane { background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--holo) 7%, var(--void)) 0%, var(--void) 100%); }
 :root[data-theme="light"] .graph-pane { box-shadow: inset 0 0 0 1px var(--border); }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .graph-pane { box-shadow: inset 0 0 0 1px var(--border); } }
 .graph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
 .graph.orbiting { cursor: grabbing; }
-.graph:focus-visible { outline: 2px solid #38BDF8; outline-offset: -2px; }
+.graph:focus-visible { outline: 2px solid var(--holo); outline-offset: -2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-.hud { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: flex; align-items: center; gap: 2px; height: 28px; padding: 0 4px 0 10px; background: rgba(5, 8, 15, .72); border: 1px solid rgba(56, 189, 248, .28); border-radius: 4px; font: 400 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; font-variant-numeric: tabular-nums; color: rgba(224, 242, 254, .65); }
-.hud-z { min-width: 4ch; text-align: right; color: #E0F2FE; }
-.hud-sep { width: 1px; height: 14px; margin: 0 6px; background: rgba(56, 189, 248, .25); }
+.hud { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: flex; align-items: center; gap: 2px; height: 28px; padding: 0 4px 0 10px; background: color-mix(in srgb, var(--void) 72%, transparent); border: 1px solid color-mix(in srgb, var(--holo) 28%, transparent); border-radius: 4px; font: 400 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--core) 65%, transparent); }
+.hud-z { min-width: 4ch; text-align: right; color: var(--core); }
+.hud-sep { width: 1px; height: 14px; margin: 0 6px; background: color-mix(in srgb, var(--holo) 25%, transparent); }
 .hud-btn { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border: 0; border-radius: 3px; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; transition: background-color 120ms, color 120ms; }
-.hud-btn:hover { background: rgba(56, 189, 248, .12); color: #E0F2FE; }
-.hud-btn:focus-visible { outline: 2px solid #38BDF8; outline-offset: 1px; }
+.hud-btn:hover { background: color-mix(in srgb, var(--holo) 12%, transparent); color: var(--core); }
+.hud-btn:focus-visible { outline: 2px solid var(--holo); outline-offset: 1px; }
 .hud-btn[aria-pressed]::before { content: ""; width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 1px; }
-.hud-btn[aria-pressed="true"]::before { background: #38BDF8; border-color: #38BDF8; }
-.hud-btn kbd { font: inherit; padding: 0 4px; border: 1px solid rgba(56, 189, 248, .3); border-radius: 3px; line-height: 14px; }
-.hud-chip { margin-left: 4px; color: var(--chip, #38BDF8); border: 1px solid color-mix(in srgb, var(--chip, #38BDF8) 45%, transparent); }
+.hud-btn[aria-pressed="true"]::before { background: var(--holo); border-color: var(--holo); }
+.hud-btn kbd { font: inherit; padding: 0 4px; border: 1px solid color-mix(in srgb, var(--holo) 30%, transparent); border-radius: 3px; line-height: 14px; }
+.hud-chip { margin-left: 4px; color: var(--chip, var(--holo)); border: 1px solid color-mix(in srgb, var(--chip, var(--holo)) 45%, transparent); }
 .hud-chip[hidden] { display: none; }
-.hud-chip .x { color: rgba(224, 242, 254, .65); }
+.hud-chip .x { color: color-mix(in srgb, var(--core) 65%, transparent); }
 
 .note-pane { position: relative; display: flex; flex-direction: column; }
 .note-scroll { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -429,3 +429,19 @@ dialog[open] { animation: pop-in 110ms var(--ease-pop); }
   :root { --insp-w: 260px; }
   .views button kbd { display: none; }
 }
+
+/* ---------- accent aesthetics (graph reads these; must stay hex) ---------- */
+:root { --holo:#38BDF8; --core:#E0F2FE; --void:#05080F; --hue-work:#E3B34C; --hue-college:#58B8D6; --hue-social:#E685A6; --hue-competitions:#A98FF5; --hue-builds:#5BC993; --hue-inbox:#94A3B8; }
+[data-accent="crimson"] { --holo:#FF3B4E; --core:#FFE4E6; --void:#0B0507; --hue-work:#FF8A3D; --hue-college:#FF4D6D; --hue-social:#FF7AB6; --hue-competitions:#C084FC; --hue-builds:#FBBF24; --hue-inbox:#A8A29E; }
+[data-accent="violet"] { --holo:#A78BFA; --core:#F3E8FF; --void:#07050F; --hue-work:#F0ABFC; --hue-college:#818CF8; --hue-social:#F472B6; --hue-competitions:#C4B5FD; --hue-builds:#67E8F9; --hue-inbox:#A1A1AA; }
+[data-accent="amber"] { --holo:#FBBF24; --core:#FEF3C7; --void:#0A0703; --hue-work:#F59E0B; --hue-college:#FDE68A; --hue-social:#FB923C; --hue-competitions:#FCA5A5; --hue-builds:#BEF264; --hue-inbox:#A8A29E; }
+[data-accent="emerald"] { --holo:#34D399; --core:#D1FAE5; --void:#030A07; --hue-work:#A3E635; --hue-college:#2DD4BF; --hue-social:#86EFAC; --hue-competitions:#67E8F9; --hue-builds:#FDE047; --hue-inbox:#9CA3AF; }
+.accent-pick { height: 28px; padding: 0 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--raised); color: var(--muted); font: 400 11px var(--mono); letter-spacing: .06em; }
+.gl-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.gl-label { position: absolute; left: 0; top: 0; font: 500 11px var(--mono); letter-spacing: .06em; white-space: nowrap; text-shadow: 0 0 6px #000, 0 0 2px #000; will-change: transform; }
+.gl-label.b { font-weight: 600; text-transform: uppercase; letter-spacing: .14em; }
+.gl-label[hidden], .gl-ret[hidden], .gl-empty[hidden] { display: none; }
+.gl-ret { position: absolute; left: 0; top: 0; border: 1px solid currentColor; border-radius: 50%; box-shadow: 0 0 12px currentColor; pointer-events: none; }
+.gl-empty { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; text-align: center; pointer-events: none; }
+.gl-empty-h { font: 600 12px var(--mono); letter-spacing: .3em; color: var(--holo); }
+.gl-empty-p { font-size: 13px; color: color-mix(in srgb, var(--core) 65%, transparent); }
